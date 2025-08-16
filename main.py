@@ -1,0 +1,2264 @@
+import asyncio
+import os
+import uuid
+import json
+import sqlite3
+import shutil
+import requests
+from pathlib import Path
+from flask import Flask, request, jsonify, Response, send_from_directory
+from flask_socketio import SocketIO, emit
+import threading
+import time
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr, ConfigDict
+from browser_use import Agent as BrowserAgent # Renamed to avoid conflict
+from browser_use.browser import BrowserProfile, BrowserSession
+from browser_use.llm import ChatOpenAI as BrowserChatOpenAI
+from concurrent.futures import ThreadPoolExecutor
+import logging
+import atexit
+import queue
+import subprocess
+import whisper
+from pydub import AudioSegment
+# Removed brave import - using direct API calls instead
+from typing import Literal
+# OpenAI API key will be set from environment
+from praisonaiagents import Agent, MCP # New import for PraisonAI
+from gif_generator import TaskGifGenerator, TaskSummaryGenerator
+from interactive_agent import InteractiveAgentManager
+from cloud_browser import get_cloud_browser_manager, ManagedCloudBrowserSession
+from browser_use_cloud import get_browser_use_cloud
+from stt_tts_system import create_stt_tts_manager
+import re
+
+# Disable browser-use telemetry to keep everything local
+
+ScreenshotCollector = None
+
+# Initialize interactive agent manager
+agent_manager = InteractiveAgentManager()
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Initialize STT/TTS system
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel voice
+ELEVENLABS_AGENT_ID = os.getenv("ELEVENLABS_AGENT_ID", "agent_1801k2s1wbt3fxmrfhy6zzarrhex")
+
+# Ensure this is set BEFORE creating manager
+print(f"🎯 Using specific agent: {ELEVENLABS_AGENT_ID}")
+
+# Initialize STT/TTS manager
+if ELEVENLABS_API_KEY and ELEVENLABS_API_KEY != "your_elevenlabs_api_key_here":
+    stt_tts_manager = create_stt_tts_manager(ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID)
+    if stt_tts_manager:
+        print("✅ STT/TTS system initialized")
+        print(f"📊 STT/TTS Status: {stt_tts_manager.get_status()}")
+    else:
+        print("❌ Failed to initialize STT/TTS system")
+        stt_tts_manager = None
+else:
+    print("⚠️ ElevenLabs API key not configured - live mode will be disabled")
+    stt_tts_manager = None
+
+# Store active live sessions
+active_live_sessions = {}
+live_session_locks = {}
+
+# --- Initialization ---
+load_dotenv()
+
+# FIX: Set a placeholder for the OpenAI API key to satisfy the praisonaiagents library's default check.
+
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Initialize Flask app with SocketIO
+app = Flask(__name__, static_folder='frontend', template_folder='frontend')
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+app.config['SECRET_KEY'] = 'omnix-ai-secret-key-2024'
+# In main.py, replace the existing SocketIO initialization with:
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins="*", 
+    async_mode='threading',
+    transports=['polling', 'websocket'],  # Add websocket here
+    cors_credentials=True,
+    manage_session=False
+)
+
+# --- Configuration ---
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CLOUD_SPEECH_API_KEY = os.getenv("GOOGLE_CLOUD_SPEECH_API_KEY")
+BROWSER_USE_CLOUD_API_KEY = os.getenv("BROWSER_USE_CLOUD_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
+GITHUB_PERSONAL_ACCESS_TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+
+# Check for required API keys for hybrid setup
+required_keys = {
+    'BROWSER_USE_CLOUD_API_KEY': BROWSER_USE_CLOUD_API_KEY,  # For browser automation via Browser Use Cloud
+    'GOOGLE_API_KEY': GOOGLE_API_KEY,  # For other tasks (chat, research, summaries)
+}
+
+missing_keys = [name for name, value in required_keys.items() if not value or value == f"your_{name.lower()}_here"]
+
+if missing_keys:
+    print(f"⚠️  Missing API keys: {', '.join(missing_keys)}")
+    if 'BROWSER_USE_CLOUD_API_KEY' in missing_keys:
+        print("   - Browser automation will not work without Browser Use Cloud API key")
+    if 'GOOGLE_API_KEY' in missing_keys:
+        print("   - Chat, research, and summaries will not work without Google API key")
+    print("   The application will start with limited functionality.")
+    
+    # Set flags for missing functionality
+    globals()['missing_browser_key'] = 'BROWSER_USE_CLOUD_API_KEY' in missing_keys
+    globals()['missing_google_key'] = 'GOOGLE_API_KEY' in missing_keys
+else:
+    print("✅ All required API keys are configured")
+    globals()['missing_browser_key'] = False
+    globals()['missing_google_key'] = False
+
+# Optional API keys (for additional features)
+optional_keys = {
+    'OPENAI_API_KEY': OPENAI_API_KEY,  # Optional: for direct OpenAI integration if needed
+    'ELEVENLABS_API_KEY': ELEVENLABS_API_KEY,
+    'BRAVE_API_KEY': BRAVE_API_KEY, 
+    'GITHUB_PERSONAL_ACCESS_TOKEN': GITHUB_PERSONAL_ACCESS_TOKEN
+}
+
+missing_optional = [name for name, value in optional_keys.items() if not value or value == f"your_{name.lower()}_here"]
+if missing_optional:
+    print(f"ℹ️  Optional API keys not configured: {', '.join(missing_optional)}")
+    print("   These are not required for core functionality.")
+
+# Brave Search will be used via direct API calls
+
+# --- Hybrid LLM Initialization ---
+print("🔧 Initializing Hybrid LLM System:")
+print("   - ChatGPT-4o mini for browser automation")
+print("   - Gemini 2.5 Flash/Pro for chat, research, and summaries")
+
+# Note: Browser Use Cloud handles ChatGPT-4o mini via its own API system
+# No need to set OPENAI_API_KEY environment variable
+
+# Browser Automation via Browser Use Cloud (ChatGPT-4o mini)
+browser_llm_available = False
+browser_llm = None  # Initialize browser_llm to None
+
+# First, try Browser Use Cloud
+if BROWSER_USE_CLOUD_API_KEY and BROWSER_USE_CLOUD_API_KEY != "your_browser_use_cloud_api_key_here":
+    try:
+        # Test Browser Use Cloud connection
+        from browser_use_cloud import get_browser_use_cloud
+        cloud_integration = get_browser_use_cloud()
+        if cloud_integration.get_manager():
+            browser_llm_available = True
+            browser_llm = None  # Browser Use Cloud handles LLM internally
+            print("✅ ChatGPT-4o mini initialized for browser automation via Browser Use Cloud")
+        else:
+            print("❌ Failed to initialize Browser Use Cloud manager")
+    except Exception as e:
+        print(f"❌ Failed to initialize Browser Use Cloud: {e}")
+        print("   Browser automation will not work without a valid Browser Use Cloud API key.")
+
+# If Browser Use Cloud fails, try using Google Gemini as fallback for local browser automation
+if not browser_llm_available and GOOGLE_API_KEY and GOOGLE_API_KEY != "your_google_api_key_here":
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        # Use Gemini for local browser automation as fallback
+        browser_llm = ChatGoogleGenerativeAI(
+            model='gemini-2.5-flash',
+            google_api_key=GOOGLE_API_KEY,
+            temperature=0.1
+        )
+        browser_llm_available = True
+        print("✅ Gemini 2.5 Flash configured as fallback for local browser automation")
+    except Exception as e:
+        print(f"❌ Failed to initialize Gemini for browser automation: {e}")
+
+if not browser_llm_available:
+    print("⚠️  No browser automation LLM configured")
+    print("   Please set either BROWSER_USE_CLOUD_API_KEY or GOOGLE_API_KEY in .env file")
+
+# Chat and Research LLMs (Gemini 2.5 Flash/Pro)
+llm_pro = None
+chat_llm_flash = None
+
+if GOOGLE_API_KEY and GOOGLE_API_KEY != "your_google_api_key_here":
+    try:
+        import google.generativeai as genai
+        from google.generativeai.types import HarmCategory, HarmBlockThreshold
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        
+        # Configure Gemini API
+        genai.configure(api_key=GOOGLE_API_KEY)
+        
+        # LLM for Complex tasks (Gemini Pro)
+        llm_pro = ChatGoogleGenerativeAI(
+            model='gemini-2.5-pro',
+            google_api_key=GOOGLE_API_KEY,
+            temperature=0.1
+        )
+        
+        # LLM for general chat (Gemini Flash)
+        chat_llm_flash = genai.GenerativeModel(
+            model_name='gemini-2.5-flash',
+            safety_settings={
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            }
+        )
+        
+        print("✅ Gemini 2.5 Pro/Flash initialized for chat and research")
+    except Exception as e:
+        print(f"❌ Failed to initialize Gemini LLMs: {e}")
+        print("   Chat and research features will not work without a valid Google API key.")
+else:
+    print("⚠️  Google API key not configured")
+    print("   Please set GOOGLE_API_KEY in your .env file for chat and research features.")
+
+
+# --- Database Setup for Browser Tasks ---
+DB_FILE = 'tasks.db'
+
+def init_db():
+    with sqlite3.connect(DB_FILE) as conn:
+        cursor = conn.cursor()
+        
+        # Create the table with original schema first
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id TEXT PRIMARY KEY,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Check if new columns exist and add them if they don't
+        cursor.execute("PRAGMA table_info(tasks)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'gif_path' not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN gif_path TEXT")
+            print("✅ Added gif_path column to database")
+            
+        if 'summary' not in columns:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN summary TEXT")
+            print("✅ Added summary column to database")
+        
+        conn.commit()
+        
+init_db()
+
+# --- Real-time Update Manager for Browser Tasks ---
+class InteractiveUpdateManager:
+    def __init__(self):
+        self.active_tasks = {}
+        self.paused_tasks = set()
+        self.manual_mode_tasks = set()
+        self.intervention_requests = {}
+        self.subscribers = {}
+        self.task_context_memory = {}  # Store context for continuation tasks
+
+    def add_task(self, task_id, task_description, debug_port=None, live_view_url=None, session_id=None, browser_type=None):
+        self.active_tasks[task_id] = {
+            'description': task_description,
+            'debug_port': debug_port,
+            'live_view_url': live_view_url,
+            'session_id': session_id,
+            'step_count': 0,
+            'status': 'running',
+            'current_url': '',
+            'last_action': '',
+            'browser_type': browser_type or ('cloud' if live_view_url else 'local')
+        }
+        
+        # Broadcast task started
+        socketio.emit('task_started', {
+            'task_id': task_id,
+            'task_description': task_description,
+            'debug_port': debug_port,
+            'live_view_url': live_view_url,
+            'session_id': session_id,
+            'browser_type': browser_type or ('cloud' if live_view_url else 'local')
+        })
+    
+    def update_task_step(self, task_id, step_num, action, description, url=''):
+        if task_id in self.active_tasks:
+            self.active_tasks[task_id].update({
+                'step_count': step_num,
+                'last_action': action,
+                'current_url': url
+            })
+            
+            # Broadcast step update
+            socketio.emit('task_step', {
+                'task_id': task_id,
+                'step': step_num,
+                'action': action,
+                'description': description,
+                'current_url': url
+            })
+    
+    def pause_task(self, task_id):
+        """Pause a task (only updates internal state, does not emit events)"""
+        self.paused_tasks.add(task_id)
+        if task_id in self.active_tasks:
+            self.active_tasks[task_id]['status'] = 'paused'
+    
+    def is_paused(self, task_id):
+        """Check if a task is currently paused"""
+        return task_id in self.paused_tasks
+    
+    def get_task(self, task_id):
+        """Get task information by task_id"""
+        return self.active_tasks.get(task_id)
+    
+    def save_task_context(self, task_id, original_task, ai_output, final_url=None, browser_state=None):
+        """Save context from completed task for continuation"""
+        self.task_context_memory[task_id] = {
+            'original_task': original_task,
+            'ai_output': ai_output,
+            'final_url': final_url,
+            'browser_state': browser_state,
+            'timestamp': time.time(),
+            'available_for_continuation': True
+        }
+        logging.info(f"💾 Saved context for task {task_id}: '{original_task}' -> '{ai_output[:100]}...'")
+    
+    def get_task_context(self, task_id):
+        """Get saved context for task continuation"""
+        return self.task_context_memory.get(task_id)
+    
+    def update_current_url(self, task_id, current_url):
+        """Update the current URL when user navigates manually"""
+        if task_id in self.task_context_memory:
+            self.task_context_memory[task_id]['current_url'] = current_url
+            self.task_context_memory[task_id]['last_updated'] = time.time()
+            logging.info(f"🔄 Updated current URL for task {task_id}: {current_url}")
+        else:
+            # Create minimal context if none exists
+            self.task_context_memory[task_id] = {
+                'original_task': 'Manual browsing session',
+                'ai_output': 'User was browsing manually',
+                'final_url': current_url,
+                'current_url': current_url,
+                'browser_state': {'manual_session': True},
+                'timestamp': time.time(),
+                'last_updated': time.time(),
+                'available_for_continuation': True
+            }
+            logging.info(f"📝 Created new context for manual session {task_id}: {current_url}")
+    
+    def resume_task(self, task_id):
+        """Resume a paused task (only updates internal state, does not emit events)"""
+        self.paused_tasks.discard(task_id)
+        if task_id in self.active_tasks:
+            self.active_tasks[task_id]['status'] = 'running'
+    
+    def complete_task(self, task_id, result, summary=None):
+        if task_id in self.active_tasks:
+            del self.active_tasks[task_id]
+        self.paused_tasks.discard(task_id)
+        self.manual_mode_tasks.discard(task_id)
+        
+        socketio.emit('task_completed', {
+            'task_id': task_id,
+            'result': result,
+            'summary': summary
+        })
+    
+    def request_intervention(self, task_id, message):
+        self.intervention_requests[task_id] = message
+        self.pause_task(task_id)
+        
+        socketio.emit('intervention_needed', {
+            'task_id': task_id,
+            'message': message
+        })
+    
+    def is_paused(self, task_id):
+        return task_id in self.paused_tasks
+    
+    def is_manual_mode(self, task_id):
+        return task_id in self.manual_mode_tasks
+    
+    def set_manual_mode(self, task_id, enabled):
+        if enabled:
+            self.manual_mode_tasks.add(task_id)
+        else:
+            self.manual_mode_tasks.discard(task_id)
+    
+    def subscribe(self, task_id):
+        """Subscribe to task updates (for streaming)"""
+        if task_id not in self.subscribers:
+            self.subscribers[task_id] = queue.Queue()
+        return self.subscribers[task_id]
+    
+    def unsubscribe(self, task_id):
+        """Unsubscribe from task updates"""
+        if task_id in self.subscribers:
+            del self.subscribers[task_id]
+
+update_manager = InteractiveUpdateManager()
+
+# --- Thread Pool for Background Tasks ---
+executor = ThreadPoolExecutor(max_workers=5)
+atexit.register(lambda: executor.shutdown(wait=False))
+
+
+# --- Browser Control Agent Logic ---
+async def execute_browser_task(task_id, task_description):
+    profile_name = f"Task_{task_id}"
+    
+    def update_status(status, result=None, gif_path=None, summary=None):
+        with app.app_context():
+            with sqlite3.connect(DB_FILE) as conn:
+                cursor = conn.cursor()
+                
+                # Check if new columns exist
+                cursor.execute("PRAGMA table_info(tasks)")
+                columns = [row[1] for row in cursor.fetchall()]
+                
+                if 'gif_path' in columns and 'summary' in columns:
+                    cursor.execute("UPDATE tasks SET status = ?, result = ?, gif_path = ?, summary = ? WHERE id = ?", 
+                                  (status, result, gif_path, summary, task_id))
+                else:
+                    # Fallback for old schema
+                    cursor.execute("UPDATE tasks SET status = ?, result = ? WHERE id = ?", (status, result, task_id))
+                
+                conn.commit()
+            
+            # Emit real-time updates via SocketIO
+            socketio.emit('status_update', {
+                'task_id': task_id,
+                'status': status, 
+                'result': result, 
+                'gif_path': gif_path, 
+                'summary': summary
+            })
+
+    browser_session = None
+    screenshot_collector = None
+    gif_path = None
+    summary = None
+    
+    try:
+        update_status('RUNNING', 'Cleaning up previous browser sessions...')
+        
+        ScreenshotCollector = None
+
+        # Initialize screenshot collector
+        screenshot_collector = ScreenshotCollector(task_id)
+        
+        # Clean up any stuck browser processes
+        try:
+            import subprocess
+            import signal
+            # Kill any stuck chrome processes
+            subprocess.run(['pkill', '-f', 'chrome.*remote-debugging'], stderr=subprocess.DEVNULL)
+        except:
+            pass  # Ignore if pkill fails
+            
+        update_status('RUNNING', 'Initializing browser...')
+        
+        if not browser_llm_available:
+            raise ValueError("Browser automation requires Browser Use Cloud API key. Please configure BROWSER_USE_CLOUD_API_KEY in your .env file.")
+        
+        # Initialize browser session with unique profile and proper configuration
+        import uuid
+        import tempfile
+        unique_profile_name = f"task_{task_id}_{uuid.uuid4().hex[:8]}"
+        temp_profile_dir = tempfile.mkdtemp(prefix=f"browser_task_{task_id}_")
+        
+        # Use a fixed debugging port to avoid conflicts
+        debug_port = 9222
+        
+        BrowserSessionWithScreenshots = None
+
+        # Use configuration that works with Chromium (Playwright default) with screenshot collector
+        browser_session = BrowserSessionWithScreenshots(
+            browser_profile=BrowserProfile(
+                headless=False,
+                user_data_dir=temp_profile_dir,
+                args=[
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage', 
+                    '--disable-gpu',
+                    f'--remote-debugging-port={debug_port}',
+                    '--disable-web-security',
+                    '--enable-automation',
+                    '--no-first-run',
+                    '--disable-default-apps',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--disable-sync',
+                    '--disable-component-extensions-with-background-pages',
+                ],
+                keep_alive=False,  # Change to False to avoid conflicts
+                enable_default_extensions=False,
+            ),
+            screenshot_collector=screenshot_collector
+        )
+        
+        # Disable telemetry in agent as well
+        import os
+        os.environ['BROWSER_USE_DISABLE_TELEMETRY'] = '1'
+        
+        agent = BrowserAgent(
+            task=task_description, 
+            browser_session=browser_session, 
+            llm=browser_llm, 
+            max_actions_per_step=5,  # Reduce max actions to prevent getting stuck
+            # Disable cloud features
+            disable_telemetry=True,
+            # Add timeout configurations
+            max_failures=2,  # Stop after 2 failures instead of 3
+            retry_delay=5    # Shorter retry delay
+        )
+        
+        update_status('RUNNING', 'Agent is running...')
+        await agent.run(max_steps=30)
+        
+        update_status('RUNNING', 'Generating GIF and summary...')
+        
+        # Generate GIF from collected screenshots
+        gif_generator = TaskGifGenerator(task_id)
+        screenshots_b64 = screenshot_collector.get_screenshots_b64()
+        
+        if screenshots_b64:
+            gif_path = gif_generator.generate_task_gif(screenshots_b64)
+            app.logger.info(f"✅ GIF generated: {gif_path}")
+        
+        # Generate task summary
+        if chat_llm_flash:
+            summary_generator = TaskSummaryGenerator(chat_llm_flash)
+        else:
+            summary_generator = None
+        actions_log = screenshot_collector.get_actions_log()
+        if summary_generator:
+            summary_data = summary_generator.generate_summary(task_description, actions_log)
+            summary = json.dumps(summary_data)
+        else:
+            summary = json.dumps({
+                "overview": f"Browser automation task: {task_description}",
+                "key_steps": [f"Executed {len(actions_log)} automation steps"],
+                "outcome": "Task completed (no LLM summary available)",
+                "duration_estimate": f"Approximately {len(actions_log)} steps",
+                "notable_events": ["OpenAI API key required for detailed summaries"]
+            })
+        
+        # Save metadata for future reference
+        screenshot_collector.save_metadata()
+        screenshot_collector.save_screenshots_to_disk()
+        
+        update_status('COMPLETED', "Task finished.", gif_path, summary)
+    except Exception as e:
+        app.logger.error(f"Task {task_id} failed: {e}", exc_info=True)
+        update_status('FAILED', f"An unexpected error occurred: {e}")
+    finally:
+        if browser_session: 
+            await browser_session.close()
+        # Clean up temporary profile directory
+        if 'temp_profile_dir' in locals() and os.path.exists(temp_profile_dir):
+            try:
+                shutil.rmtree(temp_profile_dir)
+                app.logger.info(f"Cleaned up temporary profile: {temp_profile_dir}")
+            except Exception as e:
+                app.logger.error(f"Error cleaning up profile {temp_profile_dir}: {e}")
+        update_manager.unsubscribe(task_id)
+
+# --- Flask Routes ---
+@app.route('/')
+def home():
+    return send_from_directory(app.template_folder, 'index.html')
+
+@app.route('/interactive')
+def interactive():
+    return send_from_directory(app.template_folder, 'interactive_claude.html')
+
+@app.route('/live')
+def live_conversation():
+    return send_from_directory(app.template_folder, 'live_conversation.html')
+
+@app.route('/debug')
+def debug_frontend():
+    return send_from_directory('.', 'debug_frontend.html')
+
+@app.route('/console-test.js')
+def console_test():
+    return send_from_directory('.', 'test_browser_console.js')
+
+@app.route('/browser_debug_info/<task_id>')
+def get_browser_debug_info(task_id):
+    """Get browser debugging information for live view"""
+    try:
+        # Check if we have an active task with debugging info
+        if task_id in update_manager.active_tasks:
+            task_info = update_manager.active_tasks[task_id]
+            debug_port = task_info.get('debug_port')
+            live_view_url = task_info.get('live_view_url')
+            session_id = task_info.get('session_id')
+            browser_type = task_info.get('browser_type', 'local')
+            
+            # Priority: Cloud browser live view URL (Browserbase or Browser Use Cloud)
+            if live_view_url:
+                return jsonify({
+                    'browser_type': browser_type,
+                    'live_view_url': live_view_url,
+                    'session_id': session_id,
+                    'available': True
+                })
+            
+            # Fallback: Local browser debug port
+            elif debug_port:
+                import requests
+                try:
+                    # Get Chrome debugging endpoints
+                    debug_url = f"http://localhost:{debug_port}"
+                    response = requests.get(f"{debug_url}/json", timeout=5)
+                    
+                    if response.status_code == 200:
+                        targets = response.json()
+                        
+                        # Find the first page target
+                        for target in targets:
+                            if target.get('type') == 'page':
+                                devtools_url = target.get('devtoolsFrontendUrl', '')
+                                websocket_url = target.get('webSocketDebuggerUrl', '')
+                                
+                                return jsonify({
+                                    'debug_port': debug_port,
+                                    'debug_url': debug_url,
+                                    'devtools_url': f"{debug_url}{devtools_url}",
+                                    'websocket_url': websocket_url,
+                                    'target_info': target,
+                                    'available': True
+                                })
+                        
+                        return jsonify({
+                            'debug_port': debug_port,
+                            'debug_url': debug_url,
+                            'available': False,
+                            'error': 'No page targets found'
+                        })
+                    else:
+                        return jsonify({
+                            'debug_port': debug_port,
+                            'available': False,
+                            'error': f'Debug port not responding: {response.status_code}'
+                        })
+                        
+                except requests.RequestException as e:
+                    return jsonify({
+                        'debug_port': debug_port,
+                        'available': False,
+                        'error': f'Cannot connect to debug port: {str(e)}'
+                    })
+            
+            return jsonify({
+                'available': False,
+                'error': 'No debug port available for this task'
+            })
+        
+        return jsonify({
+            'available': False,
+            'error': 'Task not found or not active'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error getting browser debug info for task {task_id}: {e}")
+        return jsonify({
+            'available': False,
+            'error': f'Failed to get debug info: {str(e)}'
+        }), 500
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_message = data.get('message', '').strip()
+    if not user_message: 
+        return jsonify({'error': 'Message cannot be empty'}), 400
+    
+    # Check for missing Google API key
+    if globals().get('missing_google_key', False):
+        return jsonify({
+            'error': 'Google API key not configured',
+            'message': 'Please set GOOGLE_API_KEY in your .env file to use chat functionality.'
+        }), 400
+    
+    try:
+        if chat_llm_flash:
+            response = chat_llm_flash.generate_content(user_message)
+            return jsonify({'response': response.text})
+        else:
+            return jsonify({
+                'error': 'Chat service unavailable',
+                'message': 'Google API key configured but chat service failed to initialize.'
+            }), 500
+    except Exception as e:
+        app.logger.error(f"Chat failed: {e}", exc_info=True)
+        return jsonify({
+            'error': f'Chat service error: {str(e)}',
+            'message': 'Please check your Google API key and try again.'
+        }), 500
+
+@app.route('/run_task', methods=['POST'])
+def run_task():
+    data = request.get_json()
+    task_description = data.get('task', '').strip()
+    if not task_description: 
+        return jsonify({'error': 'Task description cannot be empty'}), 400
+    
+    # Check for missing Browser Use Cloud API key
+    if globals().get('missing_browser_key', False):
+        return jsonify({
+            'error': 'Browser Use Cloud API key not configured',
+            'message': 'Please set BROWSER_USE_CLOUD_API_KEY in your .env file to use browser automation.'
+        }), 400
+    
+    if not browser_llm_available:
+        return jsonify({
+            'error': 'Browser automation service unavailable',
+            'message': 'Browser Use Cloud API key configured but service failed to initialize.'
+        }), 500
+    
+    task_id = str(uuid.uuid4())
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO tasks (id, description, status) VALUES (?, ?, ?)", 
+                          (task_id, task_description, 'PENDING'))
+            conn.commit()
+        
+        executor.submit(asyncio.run, execute_browser_use_cloud_task(task_id, task_description))
+        return jsonify({'task_id': task_id})
+    except Exception as e:
+        app.logger.error(f"Failed to create browser task: {e}", exc_info=True)
+        return jsonify({
+            'error': f'Failed to create browser task: {str(e)}',
+            'message': 'Please try again or check server logs.'
+        }), 500
+
+@app.route('/stream/<task_id>')
+def stream(task_id):
+    def event_stream():
+        q = update_manager.subscribe(task_id)
+        try:
+            while True:
+                data = q.get()
+                yield f"data: {json.dumps(data)}\n\n"
+                if data.get('status') in ['COMPLETED', 'FAILED']: break
+        finally:
+            update_manager.unsubscribe(task_id)
+    return Response(event_stream(), mimetype='text/event-stream')
+
+@app.route('/task_gif/<task_id>')
+def get_task_gif(task_id):
+    """Serve the generated GIF for a task"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT gif_path FROM tasks WHERE id = ?", (task_id,))
+            result = cursor.fetchone()
+            
+            if result and result[0] and os.path.exists(result[0]):
+                return send_from_directory(
+                    os.path.dirname(result[0]), 
+                    os.path.basename(result[0]), 
+                    mimetype='image/gif'
+                )
+            else:
+                return jsonify({'error': 'GIF not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error serving GIF for task {task_id}: {e}")
+        return jsonify({'error': 'Failed to load GIF'}), 500
+
+@app.route('/task_summary/<task_id>')
+def get_task_summary(task_id):
+    """Get the task summary"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT summary, status, description FROM tasks WHERE id = ?", (task_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                summary_text = result[0]
+                status = result[1]
+                description = result[2]
+                
+                summary_data = {}
+                if summary_text:
+                    try:
+                        summary_data = json.loads(summary_text)
+                    except:
+                        summary_data = {'overview': summary_text}
+                
+                return jsonify({
+                    'task_id': task_id,
+                    'description': description,
+                    'status': status,
+                    'summary': summary_data
+                })
+            else:
+                return jsonify({'error': 'Task not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error getting summary for task {task_id}: {e}")
+        return jsonify({'error': 'Failed to get summary'}), 500
+
+@app.route('/task_details/<task_id>')
+def get_task_details(task_id):
+    """Get complete task details including GIF and summary availability"""
+    try:
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                # Check for local screenshots
+                screenshots_dir = Path(f"task_data/{task_id}/screenshots")
+                screenshot_files = list(screenshots_dir.glob("step_*.png")) if screenshots_dir.exists() else []
+                
+                task_data = {
+                    'id': result[0],
+                    'description': result[1],
+                    'status': result[2],
+                    'result': result[3],
+                    'gif_available': bool(result[4] and os.path.exists(result[4])),
+                    'summary_available': bool(result[5]),
+                    'screenshots_available': len(screenshot_files) > 0,
+                    'screenshot_count': len(screenshot_files),
+                    'created_at': result[6]
+                }
+                return jsonify(task_data)
+            else:
+                return jsonify({'error': 'Task not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error getting task details for {task_id}: {e}")
+        return jsonify({'error': 'Failed to get task details'}), 500
+
+@app.route('/task_screenshots/<task_id>')
+def get_task_screenshots(task_id):
+    """Get all screenshots metadata for a task"""
+    try:
+        screenshots_dir = Path(f"task_data/{task_id}/screenshots")
+        metadata_file = Path(f"task_data/{task_id}/metadata.json")
+        
+        if not screenshots_dir.exists():
+            return jsonify({'error': 'No screenshots found for this task'}), 404
+        
+        screenshot_files = sorted(screenshots_dir.glob("step_*.png"))
+        
+        # Load metadata if available
+        metadata = {}
+        if metadata_file.exists():
+            try:
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+            except:
+                pass
+        
+        screenshots_data = []
+        for i, screenshot_path in enumerate(screenshot_files):
+            step_num = i + 1
+            screenshot_info = {
+                'step': step_num,
+                'filename': screenshot_path.name,
+                'url': f'/screenshot_image/{task_id}/{step_num}',
+                'timestamp': None,
+                'description': f'Step {step_num}'
+            }
+            
+            # Add metadata if available
+            screenshots_metadata = metadata.get('screenshots_metadata', [])
+            if i < len(screenshots_metadata):
+                meta = screenshots_metadata[i]
+                screenshot_info.update({
+                    'timestamp': meta.get('timestamp'),
+                    'description': meta.get('description', screenshot_info['description'])
+                })
+            
+            screenshots_data.append(screenshot_info)
+        
+        return jsonify({
+            'task_id': task_id,
+            'screenshot_count': len(screenshots_data),
+            'screenshots': screenshots_data
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error getting screenshots for task {task_id}: {e}")
+        return jsonify({'error': 'Failed to get screenshots'}), 500
+
+@app.route('/screenshot_image/<task_id>/<int:step>')
+def get_screenshot_image(task_id, step):
+    """Serve individual screenshot image"""
+    try:
+        screenshot_path = Path(f"task_data/{task_id}/screenshots/step_{step}.png")
+        
+        if screenshot_path.exists():
+            return send_from_directory(
+                screenshot_path.parent,
+                screenshot_path.name,
+                mimetype='image/png'
+            )
+        else:
+            return jsonify({'error': 'Screenshot not found'}), 404
+            
+    except Exception as e:
+        app.logger.error(f"Error serving screenshot {task_id}/step_{step}: {e}")
+        return jsonify({'error': 'Failed to serve screenshot'}), 500
+
+@app.route('/research', methods=['POST'])
+def research_agent():
+    data = request.get_json()
+    query = data.get('query', '').strip()
+    if not query: return jsonify({'error': 'Query cannot be empty'}), 400
+    
+    try:
+        headers = {"X-Subscription-Token": BRAVE_API_KEY}
+        params = {"q": query, "count": 5}
+        response = requests.get("https://api.search.brave.com/res/v1/web/search", params=params, headers=headers)
+        response.raise_for_status()
+        search_results = response.json()
+
+        context = ""
+        sources = []
+        for result in search_results.get("web", {}).get("results", []):
+            title = result.get("title", "No Title")
+            url = result.get("url", "#")
+            description = result.get("description", "No description available.")
+            context += f"Title: {title}\nURL: {url}\nSnippet: {description}\n\n"
+            sources.append({"title": title, "url": url})
+        
+        # Use PraisonAI for sequential thinking with Gemini
+        sequential_agent = Agent(
+            instructions="You are a helpful assistant that can break down complex problems. Use the available tools when relevant to perform step-by-step analysis.",
+            llm="gemini-2.5-flash",
+            tools=MCP("npx -y @modelcontextprotocol/server-sequential-thinking", env={"GOOGLE_API_KEY": GOOGLE_API_KEY})
+        )
+        thinking_result = sequential_agent.start(f"Based on the following context, break down the answer to the query: '{query}'.\n\nContext:\n{context}")
+        
+        final_prompt = f"""
+        User Query: "{query}"
+        Initial Search Context:
+        {context}
+        Processed Thoughts from Sequential Thinking Agent:
+        {thinking_result}
+        Your task is to synthesize all this information into a final, comprehensive answer.
+        """
+        if chat_llm_flash:
+            response = chat_llm_flash.generate_content(final_prompt)
+            app.logger.info(f"Research task response: {response.text[:200]}...")
+            return jsonify({'summary': response.text, 'sources': sources})
+        else:
+            return jsonify({'summary': "I need a Google API key for research. Please configure GOOGLE_API_KEY in your .env file.", 'sources': sources})
+    except Exception as e:
+        app.logger.error(f"Research agent failed: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to perform research.'}), 500
+
+@app.route('/complex_task', methods=['POST'])
+def complex_task_agent():
+    data = request.get_json()
+    prompt = data.get('prompt', '').strip()
+    if not prompt: return jsonify({'error': 'Prompt cannot be empty'}), 400
+    try:
+        # Step 1: Use PraisonAI for sequential thinking with Gemini
+        sequential_agent = Agent(
+            instructions="You are a helpful assistant that can break down complex problems. Use the available tools when relevant to perform step-by-step analysis.",
+            llm="gemini-2.5-pro",
+            tools=MCP("npx -y @modelcontextprotocol/server-sequential-thinking", env={"GOOGLE_API_KEY": GOOGLE_API_KEY})
+        )
+        thinking_result = sequential_agent.start(f"Break down the steps to solve the following task: {prompt}")
+
+        github_context = ""
+        if "code" in prompt.lower() or "github" in prompt.lower():
+            # Step 2: Use PraisonAI for GitHub interaction with Gemini
+            github_agent = Agent(
+                instructions="You are a helpful assistant that can interact with GitHub. Use the available tools when relevant to answer user questions.",
+                llm="gemini-2.5-flash",
+                tools=MCP("npx -y @modelcontextprotocol/server-github", env={"GITHUB_PERSONAL_ACCESS_TOKEN": GITHUB_PERSONAL_ACCESS_TOKEN, "GOOGLE_API_KEY": GOOGLE_API_KEY})
+            )
+            # You might need to formulate a more specific query for the GitHub agent based on the prompt
+            github_context = github_agent.start(f"Based on the task '{prompt}', what information can you find on GitHub?")
+
+        system_prompt = """You are an expert-level AI assistant for complex problem-solving.
+        You have been provided with a step-by-step plan from a sequential thinking agent and, optionally, context from a GitHub agent.
+        Your task is to synthesize this information to produce a final, complete, and accurate solution.
+        If the task requires code, write clean, efficient, and well-commented Python code.
+        Format your response clearly, using Markdown for code blocks and explanations."""
+       
+        full_prompt = f"""
+        {system_prompt}
+        Original User Task:
+        {prompt}
+        Sequential Thinking Breakdown:
+        {thinking_result}
+        GitHub Context:
+        {github_context or "Not applicable."}
+        Now, provide the final solution.
+        """
+        if llm_pro:
+            response = llm_pro.invoke(full_prompt)
+            return jsonify({'response': response.content})
+        elif chat_llm_flash:
+            response = chat_llm_flash.generate_content(full_prompt)
+            return jsonify({'response': response.text})
+        else:
+            return jsonify({'error': 'Google API key required for complex tasks. Please configure GOOGLE_API_KEY in your .env file.'})
+    except Exception as e:
+        app.logger.error(f"Complex task agent failed: {e}", exc_info=True)
+        return jsonify({'error': 'Failed to process the complex task.'}), 500
+
+
+
+
+@app.route('/tts', methods=['POST'])
+def tts():
+    data = request.get_json()
+    text = data.get('text', '').strip()
+    if not text: return jsonify({'error': 'No text provided'}), 400
+
+    voice_id = "21m00Tcm4TlvDq8ikWAM" # Rachel
+    tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVENLABS_API_KEY
+    }
+    payload = {
+        "text": text,
+        "model_id": "eleven_multilingual_v2",
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}
+    }
+
+    try:
+        response = requests.post(tts_url, json=payload, headers=headers)
+        if response.status_code == 200:
+            audio_filename = f"./temp_tts_{uuid.uuid4()}.mp3"
+            with open(audio_filename, "wb") as f:
+                f.write(response.content)
+            return send_from_directory(os.path.dirname(audio_filename), os.path.basename(audio_filename), as_attachment=True)
+        else:
+            app.logger.error(f"ElevenLabs API request failed: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to generate speech.'}), response.status_code
+    except Exception as e:
+        app.logger.error(f"TTS failed: {e}", exc_info=True)
+        return jsonify({'error': f"An error occurred during TTS: {e}"}), 500
+
+@app.route('/api/elevenlabs/token', methods=['POST'])
+def get_elevenlabs_token():
+    """Return API key for ElevenLabs Agent API"""
+    try:
+        # Check for ElevenLabs API key
+        if not ELEVENLABS_API_KEY:
+            return jsonify({
+                'error': 'ElevenLabs API key not configured'
+            }), 400
+        
+        # Return the API key directly - ElevenLabs Agent can use this
+        return jsonify({
+            'api_key': ELEVENLABS_API_KEY,
+            'status': 'ready'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error getting ElevenLabs API key: {e}")
+        return jsonify({
+            'error': 'Failed to get API key'
+        }), 500
+
+@app.route('/update_current_url', methods=['POST'])
+def update_current_url():
+    """Update the current URL for a task when user navigates manually"""
+    try:
+        data = request.get_json()
+        task_id = data.get('task_id')
+        current_url = data.get('current_url', '').strip()
+        
+        if not task_id or not current_url:
+            return jsonify({'error': 'task_id and current_url are required'}), 400
+        
+        # Update the URL in the context memory
+        update_manager.update_current_url(task_id, current_url)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Current URL updated for task {task_id}',
+            'current_url': current_url
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Failed to update current URL: {e}", exc_info=True)
+        return jsonify({'error': f"Failed to update current URL: {e}"}), 500
+
+elevenlabs_manager = None
+
+@app.route('/live/start_session', methods=['POST'])
+def start_live_session():
+    """Start a new ElevenLabs Agent conversation session"""
+    try:
+        if not elevenlabs_manager:
+            return jsonify({
+                'error': 'ElevenLabs Agent not available',
+                'message': 'ElevenLabs API key not configured'
+            }), 400
+        
+        data = request.get_json() or {}
+        session_id = str(uuid.uuid4())
+        agent_id = data.get('agent_id', 'default')  # Use default agent or specified agent_id
+        
+        # Create the session (this will be done asynchronously)
+        def create_session():
+            asyncio.run(elevenlabs_manager.create_session(session_id, agent_id))
+        
+        executor.submit(create_session)
+        
+        return jsonify({
+            'session_id': session_id,
+            'status': 'starting',
+            'message': 'ElevenLabs Agent session is being created'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Failed to start live session: {e}", exc_info=True)
+        return jsonify({'error': f"Failed to start live session: {e}"}), 500
+
+@app.route('/live/send_message', methods=['POST'])
+def send_live_message():
+    """Send text message to active live session"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        message = data.get('message', '').strip()
+        
+        if not session_id or not message:
+            return jsonify({'error': 'session_id and message are required'}), 400
+        
+        if not elevenlabs_manager:
+            return jsonify({'error': 'ElevenLabs Agent not available'}), 400
+        
+        session = elevenlabs_manager.get_session(session_id)
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Send message asynchronously
+        def send_message():
+            asyncio.run(session.send_text(message))
+        
+        executor.submit(send_message)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Message sent to ElevenLabs Agent'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Failed to send live message: {e}", exc_info=True)
+        return jsonify({'error': f"Failed to send message: {e}"}), 500
+
+@app.route('/live/end_session', methods=['POST'])
+def end_live_session():
+    """End a live conversation session"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'session_id is required'}), 400
+        
+        if not elevenlabs_manager:
+            return jsonify({'error': 'ElevenLabs Agent not available'}), 400
+        
+        # End session asynchronously
+        def end_session():
+            asyncio.run(elevenlabs_manager.end_session(session_id))
+        
+        executor.submit(end_session)
+        
+        return jsonify({
+            'success': True,
+            'message': 'ElevenLabs Agent session ended'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Failed to end live session: {e}", exc_info=True)
+        return jsonify({'error': f"Failed to end session: {e}"}), 500
+
+@app.route('/live/session_status/<session_id>')
+def get_live_session_status(session_id):
+    """Get status of a live session"""
+    try:
+        if not elevenlabs_manager:
+            return jsonify({'error': 'ElevenLabs Agent not available'}), 400
+        
+        session = elevenlabs_manager.get_session(session_id)
+        if not session:
+            return jsonify({'status': 'not_found'}), 404
+        
+        return jsonify({
+            'session_id': session_id,
+            'status': 'active' if session.session_active else 'inactive',
+            'agent_id': session.agent_id
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Failed to get session status: {e}", exc_info=True)
+        return jsonify({'error': f"Failed to get status: {e}"}), 500
+
+# --- SocketIO Event Handlers ---
+@socketio.on('connect')
+def handle_connect():
+    app.logger.info('Client connected to SocketIO')
+    # Send connection status with API key status
+    connection_status = {
+        'status': 'Connected to Omnix AI',
+        'browser_automation': not globals().get('missing_browser_key', True),
+        'chat_available': not globals().get('missing_google_key', True),
+        'server_time': time.time()
+    }
+    emit('connected', connection_status)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    app.logger.info('Client disconnected from SocketIO')
+
+@socketio.on('user_message')
+def handle_user_message(data):
+    """Handle user messages during task execution"""
+    try:
+        task_id = data.get('task_id')
+        message = data.get('message', '')
+        is_paused = data.get('is_paused', False)
+        
+        app.logger.info(f'User message for task {task_id}: {message}')
+        
+        # Send immediate acknowledgment
+        emit('user_message_received', {
+            'task_id': task_id,
+            'message': message,
+            'timestamp': time.time()
+        })
+        
+        if task_id:
+            # Forward message to the interactive agent
+            agent_manager.add_user_input(task_id, message)
+        else:
+            # Start a new task if no task_id
+            # Send immediate acknowledgment
+            emit('task_step', {
+                'task_id': 'pending',
+                'step': 0,
+                'action': 'starting',
+                'description': f'Starting new browser automation task: {message}',
+                'current_url': ''
+            })
+            
+            start_interactive_task(message)
+            
+    except Exception as e:
+        app.logger.error(f'Error handling user message: {e}')
+        emit('error', {'message': 'Failed to process message'})
+
+# Pause functionality removed - use Manual mode instead
+
+@socketio.on('resume_task')
+def handle_resume_task(data):
+    """Handle task resume requests"""
+    task_id = data.get('task_id')
+    if task_id:
+        logging.info(f"▶️ Resume request for task {task_id}")
+        
+        # Try Browser Use Cloud resume first
+        cloud_integration = get_browser_use_cloud()
+        manager = cloud_integration.get_manager()
+        
+        # For Browser Use Cloud tasks, "resume" means "ready for new instructions"
+        # Since Browser Use Cloud tasks can't truly be paused/resumed, we just switch to ready state
+        
+        # Check if this was a Browser Use Cloud task
+        if manager and task_id in manager.active_tasks:
+            # Browser Use Cloud task - mark as ready and inform user
+            update_manager.resume_task(task_id)
+            emit('task_resumed', {'task_id': task_id, 'message': 'Ready for new instructions - send a message to continue automation'})
+            logging.info(f"✅ Browser Use Cloud task {task_id} marked as ready for new instructions")
+        elif task_id in update_manager.paused_tasks:
+            # Task exists in paused tasks but not in active cloud tasks - mark as ready
+            update_manager.resume_task(task_id)
+            emit('task_resumed', {'task_id': task_id, 'message': 'Ready for new instructions - send a message to continue automation'})
+            logging.info(f"✅ Task {task_id} marked as ready for new instructions")
+        else:
+            # Fallback to old agent system
+            try:
+                agent_manager.resume_agent(task_id)
+                emit('task_resumed', {'task_id': task_id, 'message': 'Interactive agent resumed'})
+                logging.info(f"✅ Interactive agent {task_id} resumed successfully")
+            except Exception as e:
+                logging.error(f"❌ Failed to resume task {task_id}: {e}")
+                emit('task_resumed', {'task_id': task_id, 'message': 'Send new instructions to continue'})
+
+@socketio.on('take_screenshot')
+def handle_take_screenshot(data):
+    """Handle screenshot requests"""
+    task_id = data.get('task_id')
+    if task_id:
+        screenshot_path = agent_manager.take_screenshot(task_id)
+        emit('screenshot_taken', {
+            'task_id': task_id,
+            'screenshot_path': screenshot_path
+        })
+
+import base64
+
+@socketio.on('live_session_start')
+def handle_live_session_start(data):
+    """Handle live conversation session start"""
+    try:
+        if not stt_tts_manager:
+            socketio.emit('live_session_error', {
+                'error': 'STT/TTS system not available',
+                'message': 'ElevenLabs API key not configured or system initialization failed'
+            })
+            return
+        
+        session_id = data.get('session_id', str(uuid.uuid4()))
+        
+        # Store session
+        active_live_sessions[session_id] = {
+            'created_at': time.time(),
+            'status': 'active'
+        }
+        
+        print(f"🎯 Starting live session: {session_id}")
+        
+        # Set up callbacks for this session
+        def emit_transcript(text):
+            socketio.emit('live_transcript', {
+                'session_id': session_id,
+                'text': text,
+                'timestamp': time.time()
+            })
+        
+        def emit_audio_response(audio_base64):
+            socketio.emit('live_audio_response', {
+                'session_id': session_id,
+                'audio_data': audio_base64,
+                'timestamp': time.time()
+            })
+        
+        def emit_error(error):
+            socketio.emit('live_session_error', {
+                'session_id': session_id,
+                'error': str(error)
+            })
+        
+        # Set callbacks
+        stt_tts_manager.set_callbacks(
+            on_transcript=emit_transcript,
+            on_audio_response=emit_audio_response,
+            on_error=emit_error
+        )
+        
+        # Emit session created
+        socketio.emit('live_session_created', {
+            'session_id': session_id,
+            'status': 'created'
+        })
+        
+        # Emit session started
+        socketio.emit('live_session_started', {
+            'session_id': session_id,
+            'status': 'active'
+        })
+        
+        print(f"✅ Live session {session_id} started successfully")
+        
+    except Exception as e:
+        print(f"❌ Error starting live session: {e}")
+        socketio.emit('live_session_error', {
+            'error': 'Failed to start session',
+            'message': str(e)
+        })
+        agent_id = None
+        def create_session():
+            try:
+                # Create session
+                session = asyncio.run(elevenlabs_manager.create_session(session_id, agent_id))
+                
+                # Set up callbacks
+                def emit_text_response(text):
+                    socketio.emit('live_text_response', {
+                        'session_id': session_id,
+                        'text': text,
+                        'timestamp': time.time()
+                    })
+
+                def emit_audio_response(audio_data):
+                    socketio.emit('live_audio_response', {
+                        'session_id': session_id,
+                        'audio_data': audio_data,
+                        'timestamp': time.time()
+                    })
+
+                def emit_session_started(sid):
+                    socketio.emit('live_session_started', {
+                        'session_id': session_id,
+                        'elevenlabs_session_id': sid,
+                        'status': 'active'
+                    })
+
+                # Set callbacks
+                session.set_callbacks(
+                    on_text_response=emit_text_response,
+                    on_audio_response=emit_audio_response,
+                    on_session_start=emit_session_started
+                )
+                
+                # Send initial creation confirmation
+                socketio.emit('live_session_created', {
+                    'session_id': session_id,
+                    'status': 'starting'
+                })
+                
+            except Exception as e:
+                socketio.emit('live_session_error', {
+                    'error': f'Failed to create session: {str(e)}'
+                })
+        
+        executor.submit(create_session)
+        
+    except Exception as e:
+        socketio.emit('live_session_error', {
+            'error': f'Session start failed: {str(e)}'
+        })
+
+@socketio.on('live_send_text')
+def handle_live_send_text(data):
+    """Handle text message in live conversation"""
+    try:
+        session_id = data.get('session_id')
+        message = data.get('message', '').strip()
+        
+        if not session_id or not message:
+            emit('live_session_error', {
+                'error': 'session_id and message are required'
+            })
+            return
+        
+        if not stt_tts_manager:
+            emit('live_session_error', {
+                'error': 'STT/TTS system not available'
+            })
+            return
+        
+        if session_id not in active_live_sessions:
+            emit('live_session_error', {
+                'error': 'Session not found'
+            })
+            return
+        
+        print(f"User message: {message}")
+        
+        # Emit user transcript
+        socketio.emit('live_transcript', {
+            'session_id': session_id,
+            'text': message,
+            'type': 'user',
+            'timestamp': time.time()
+        })
+        
+        # Process with Gemini (like regular chat)
+        async def process_and_respond():
+            try:
+                # Get AI response using existing chat system
+                if chat_llm_flash:
+                    prompt = get_ai_personality_prompt(message)
+                    response = chat_llm_flash.generate_content(prompt)
+                    ai_response = response.text if hasattr(response, 'text') else str(response)
+                else:
+                    ai_response = "Chat service is not available. Please check your Google API key."
+                
+                # Emit AI text response
+                socketio.emit('live_text_response', {
+                    'session_id': session_id,
+                    'text': ai_response,
+                    'timestamp': time.time()
+                })
+                
+                # Clean and generate TTS audio
+                tts_text = clean_text_for_tts(ai_response)
+                audio_base64 = await stt_tts_manager.generate_speech_response(tts_text)
+                
+                print(f"✅ Text processing completed for session {session_id}")
+                
+            except Exception as e:
+                print(f"❌ Error processing text: {e}")
+                socketio.emit('live_session_error', {
+                    'session_id': session_id,
+                    'error': f'Text processing failed: {str(e)}'
+                })
+        
+        # Process asynchronously
+        executor.submit(asyncio.run, process_and_respond())
+        
+        # Emit confirmation
+        emit('live_text_sent', {
+            'session_id': session_id,
+            'message': message,
+            'timestamp': time.time()
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error sending live text: {e}")
+        emit('live_session_error', {
+            'error': f'Failed to send message: {e}'
+        })
+
+@socketio.on('live_send_audio')
+def handle_live_send_audio(data):
+    """Handle audio input in live conversation - generate full response at once"""
+    try:
+        audio_data = data.get('audio_data')
+        audio_format = data.get('format', 'wav')
+        session_id = 'default_session'
+        
+        if not audio_data:
+            emit('live_session_error', {
+                'error': 'audio_data is required'
+            })
+            return
+        
+        if not stt_tts_manager:
+            emit('live_session_error', {
+                'error': 'STT/TTS system not available'
+            })
+            return
+        
+        print(f"🎤 Processing audio for session: {session_id}")
+        
+        # Process audio asynchronously - generate complete response
+        async def process_audio_complete():
+            try:
+                print(f"🔄 Starting complete audio processing...")
+                
+                # Decode base64 audio
+                audio_bytes = base64.b64decode(audio_data)
+                
+                # Transcribe audio to text
+                print(f"Starting STT transcription...")
+                transcript = await stt_tts_manager.process_audio_input(audio_bytes)
+                print(f"STT result: {transcript}")
+                
+                if transcript and transcript.strip():
+                    print(f"Transcribed: {transcript}")
+                    
+                    # Emit transcript to frontend
+                    socketio.emit('live_transcript_update', {
+                        'session_id': session_id,
+                        'transcript': transcript,
+                        'timestamp': time.time()
+                    })
+                    
+                    # Start AI thinking mode
+                    socketio.emit('live_ai_thinking', {
+                        'session_id': session_id,
+                        'status': 'thinking'
+                    })
+                    
+                    # Get COMPLETE AI response using Gemini
+                    if chat_llm_flash:
+                        try:
+                            print(f"Generating COMPLETE AI response...")
+                            
+                            # Generate FULL response - no streaming
+                            prompt = get_ai_personality_prompt(transcript)
+                            response = chat_llm_flash.generate_content(prompt)
+                            ai_response = response.text if hasattr(response, 'text') else str(response)
+                            
+                            print(f"Complete AI response: {ai_response[:100]}...")
+                            
+                            # Emit complete text response
+                            socketio.emit('live_text_response', {
+                                'session_id': session_id,
+                                'text': ai_response,
+                                'timestamp': time.time()
+                            })
+                            
+                            # Start AI speaking mode
+                            socketio.emit('live_ai_speaking', {
+                                'session_id': session_id,
+                                'status': 'speaking'
+                            })
+                            
+                            # Clean and generate COMPLETE TTS audio at once
+                            print(f"Generating COMPLETE TTS audio...")
+                            tts_text = clean_text_for_tts(ai_response)
+                            audio_base64 = await stt_tts_manager.generate_speech_response(tts_text)
+                            
+                            if audio_base64:
+                                print(f"Complete TTS generated successfully")
+                                socketio.emit('live_audio_response', {
+                                    'session_id': session_id,
+                                    'audio_data': audio_base64,
+                                    'text': ai_response,
+                                    'timestamp': time.time()
+                                })
+                            else:
+                                print(f"⚠️ No TTS audio generated")
+                            
+                        except Exception as e:
+                            print(f"❌ Error generating AI response: {e}")
+                            error_response = "I encountered an error processing your request. Please try again."
+                            socketio.emit('live_text_response', {
+                                'session_id': session_id,
+                                'text': error_response,
+                                'timestamp': time.time()
+                            })
+                    else:
+                        error_response = "Chat service is not available. Please check your Google API key."
+                        socketio.emit('live_text_response', {
+                            'session_id': session_id,
+                            'text': error_response,
+                            'timestamp': time.time()
+                        })
+                    
+                    print(f"✅ Complete processing finished for session {session_id}")
+                    
+                    # Signal completion
+                    socketio.emit('live_response_complete', {
+                        'session_id': session_id,
+                        'full_response': ai_response if 'ai_response' in locals() else error_response,
+                        'timestamp': time.time()
+                    })
+                    
+                else:
+                    print(f"⚠️ No speech detected in audio")
+                    socketio.emit('live_transcript_update', {
+                        'session_id': session_id,
+                        'transcript': "No speech detected",
+                        'timestamp': time.time()
+                    })
+                    
+            except Exception as e:
+                print(f"❌ Error processing audio: {e}")
+                import traceback
+                traceback.print_exc()
+                socketio.emit('live_session_error', {
+                    'session_id': session_id,
+                    'error': f'Audio processing failed: {str(e)}'
+                })
+        
+        # Process asynchronously
+        def run_complete_processing():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(process_audio_complete())
+                loop.close()
+            except Exception as e:
+                print(f"❌ Error in async processing: {e}")
+                socketio.emit('live_session_error', {
+                    'session_id': session_id,
+                    'error': f'Async processing failed: {str(e)}'
+                })
+        
+        executor.submit(run_complete_processing)
+        
+        # Send immediate acknowledgment
+        emit('live_audio_received', {
+            'session_id': session_id,
+            'status': 'processing'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error in live_send_audio: {e}")
+        socketio.emit('live_session_error', {
+            'error': f'Audio processing failed: {str(e)}'
+        })
+
+@socketio.on('live_session_end')
+def handle_live_session_end(data):
+    """Handle ending a live conversation session"""
+    try:
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            emit('live_session_error', {
+                'error': 'session_id is required'
+            })
+            return
+        
+        # Remove from active sessions
+        if session_id in active_live_sessions:
+            del active_live_sessions[session_id]
+            print(f"💯 Ended live session: {session_id}")
+        
+        emit('live_session_ended', {
+            'session_id': session_id
+        })
+        
+    except Exception as e:
+        print(f"❌ Error ending live session: {e}")
+        emit('live_session_error', {
+            'error': f'Failed to end session: {e}'
+        })
+
+def clean_text_for_tts(text: str) -> str:
+    """Remove special characters and formatting for cleaner TTS output."""
+    return re.sub(r'[\*#]', '', text)
+
+def get_ai_personality_prompt(user_message: str) -> str:
+    """Add a personality prompt to the user's message."""
+    return f"""
+You are a supportive, emotional, and helpful assistant.
+Always respond with empathy and understanding.
+User: {user_message}
+Assistant:
+"""
+
+def get_active_manual_control_session():
+    """Check for existing Browser Use Cloud session in manual control or paused mode"""
+    cloud_integration = get_browser_use_cloud()
+    manager = cloud_integration.get_manager()
+    
+    if manager and manager.active_tasks:
+        for task_id, task in manager.active_tasks.items():
+            if task.status in ["manual_control", "paused_for_continuation"]:
+                return task_id, task
+    return None, None
+
+def continue_browser_session(existing_task_id, task_description):
+    """HYBRID APPROACH: Create new task with FULL context - Perfect simulation of true continuation!"""
+    logging.info(f"🔄 User wants to continue Browser Use Cloud session {existing_task_id} with: {task_description}")
+    
+    # Get the existing task info and saved context
+    cloud_integration = get_browser_use_cloud()
+    manager = cloud_integration.get_manager()
+    existing_task = manager.get_task_info(existing_task_id) if manager else None
+    task_context = update_manager.get_task_context(existing_task_id)
+    
+    if not task_context:
+        logging.warning(f"⚠️ No saved context found for task {existing_task_id}")
+        # Fallback to basic continuation
+        return create_basic_continuation_task(existing_task_id, task_description)
+    
+    # Create new continuation task with FULL context - this gives the EXACT experience you want
+    continuation_task_id = str(uuid.uuid4())
+    
+    logging.info(f"🧠 Creating SMART continuation task {continuation_task_id} with full context")
+    
+    # Send status update
+    socketio.emit('task_step', {
+        'task_id': continuation_task_id,
+        'step': 1,
+        'action': 'session_smart_continue',
+        'description': f'🧠 SMART CONTINUATION: {task_description} (using saved context & state)',
+        'current_url': task_context.get('final_url', '')
+    })
+    
+    # Create the SMART continuation instruction based on CURRENT location
+    original_task = task_context['original_task']
+    ai_output = task_context['ai_output']
+    final_url = task_context.get('final_url', '')
+    current_url = task_context.get('current_url', final_url)  # Use current URL if available, fallback to final
+    browser_state = task_context.get('browser_state', {})
+    
+    logging.info(f"🌐 Continuation context - Original: {final_url}, Current: {current_url}")
+    
+    # Create intelligent continuation instruction based on current location
+    if current_url and current_url != final_url:
+        # User navigated somewhere else manually - be contextual about current location
+        if "amazon.com" in current_url:
+            continuation_instruction = f"I can see you're currently on Amazon. {task_description}"
+        elif "google.com" in current_url:
+            continuation_instruction = f"I can see you're currently on Google. {task_description}"
+        elif "youtube.com" in current_url:
+            continuation_instruction = f"I can see you're currently on YouTube. {task_description}"
+        elif "github.com" in current_url:
+            continuation_instruction = f"I can see you're currently on GitHub. {task_description}"
+        else:
+            # Generic case for any other website
+            domain = current_url.split('/')[2] if '/' in current_url else current_url
+            continuation_instruction = f"I can see you're currently on {domain}. {task_description}"
+    else:
+        # User is still where AI left off - use original smart logic
+        if "amazon" in original_task.lower():
+            if "search" in original_task.lower() and ("add" in task_description.lower() or "cart" in task_description.lower()):
+                # Specific case: Amazon search -> add to cart
+                search_term = original_task.split("search for")[-1].strip().strip('"').strip("'")
+                continuation_instruction = f"Go to amazon.com, search for '{search_term}', and add the first relevant result to cart."
+            else:
+                continuation_instruction = f"Continue on Amazon: {task_description}"
+        else:
+            # General continuation
+            continuation_instruction = f"Continue from where we left off: {task_description}"
+    
+    # Run the smart continuation task
+    def run_smart_continuation():
+        try:
+            logging.info(f"🚀 Executing smart continuation with full context awareness")
+            asyncio.run(execute_browser_use_cloud_task(
+                continuation_task_id, 
+                continuation_instruction, 
+                continue_session=True
+            ))
+        except Exception as e:
+            logging.error(f"❌ Error in smart continuation task: {e}")
+            socketio.emit('task_step', {
+                'task_id': continuation_task_id,
+                'step': 1,
+                'action': 'session_continue_error',
+                'description': f'Smart continuation failed: {str(e)}',
+                'current_url': ''
+            })
+    
+    executor.submit(run_smart_continuation)
+    return continuation_task_id
+
+def create_basic_continuation_task(existing_task_id, task_description):
+    """Fallback for when no context is available"""
+    continuation_task_id = str(uuid.uuid4())
+    
+    logging.info(f"🔄 Creating basic continuation task (no context available)")
+    
+    continuation_instruction = f"""CONTINUATION TASK: {task_description}
+
+Execute this browser automation task efficiently. This appears to be a follow-up to a previous task.
+
+TASK: {task_description}"""
+    
+    def run_basic_continuation():
+        try:
+            asyncio.run(execute_browser_use_cloud_task(
+                continuation_task_id, 
+                continuation_instruction, 
+                continue_session=True
+            ))
+        except Exception as e:
+            logging.error(f"❌ Error in basic continuation task: {e}")
+    
+    executor.submit(run_basic_continuation)
+    return continuation_task_id
+
+def start_interactive_task(task_description):
+    """Start a new interactive browser task using Browser Use Cloud or continue existing session"""
+    
+    # Check if user explicitly wants a new session
+    if task_description.lower().startswith("new session:"):
+        task_description = task_description[12:].strip()  # Remove "new session:" prefix
+        logging.info(f"🚀 User requested new session: {task_description}")
+        # Force new session
+        task_id = str(uuid.uuid4())
+        
+        def run_task():
+            asyncio.run(execute_browser_use_cloud_task(task_id, task_description))
+        
+        executor.submit(run_task)
+        return task_id
+    
+    # Check for existing manual control session first
+    existing_task_id, existing_task = get_active_manual_control_session()
+    
+    if existing_task_id and existing_task:
+        # Continue with existing session context
+        logging.info(f"🔄 Found existing Browser Use Cloud session {existing_task_id}, continuing workflow...")
+        return continue_browser_session(existing_task_id, task_description)
+    else:
+        # Start new session
+        logging.info(f"🚀 Starting new Browser Use Cloud session...")
+        task_id = str(uuid.uuid4())
+        
+        # Run the task in background
+        def run_task():
+            asyncio.run(execute_browser_use_cloud_task(task_id, task_description))
+        
+        executor.submit(run_task)
+        return task_id
+
+# --- Cloud Interactive Browser Task Execution ---
+async def execute_cloud_interactive_browser_task(task_id, task_description):
+    """Execute browser task with cloud browser and interactive features"""
+    cloud_manager = get_cloud_browser_manager()
+    screenshot_collector = None
+    
+    try:
+        # Initialize screenshot collector
+        screenshot_collector = ScreenshotCollector(task_id)
+        
+        # Use cloud browser with managed session
+        async with ManagedCloudBrowserSession(
+            task_id=task_id,
+            cloud_manager=cloud_manager,
+            # Cloud browser configuration
+            proxies=True,
+            fingerprint=True,
+            adblock=True,
+            keepAlive=True
+        ) as (browser_session, session_data):
+            
+            # Browser Use Cloud handles ChatGPT-4o mini internally
+            # No need to create BrowserChatOpenAI instance
+            
+            # Create interactive agent with cloud browser
+            interactive_agent = agent_manager.create_agent(
+                task_id=task_id,
+                task_description=task_description,
+                browser_session=browser_session,
+                llm=None,  # Browser Use Cloud handles LLM internally
+                update_manager=update_manager
+            )
+            
+            # Notify update manager about the cloud session
+            update_manager.add_task(
+                task_id, 
+                task_description, 
+                debug_port=None,  # Cloud browser doesn't use debug port
+                live_view_url=session_data.get('live_view_url'),
+                session_id=session_data.get('session_id')
+            )
+            
+            # Run the interactive task
+            result = await interactive_agent.run()
+            
+            # Generate GIF and summary after completion
+            gif_generator = TaskGifGenerator(task_id)
+            screenshots_b64 = screenshot_collector.get_screenshots_b64()
+            
+            gif_path = None
+            if screenshots_b64:
+                gif_path = gif_generator.generate_task_gif(screenshots_b64)
+            
+            if chat_llm_flash:
+                summary_generator = TaskSummaryGenerator(chat_llm_flash)
+            else:
+                summary_generator = None
+            actions_log = screenshot_collector.get_actions_log()
+            if summary_generator:
+                summary_data = summary_generator.generate_summary(task_description, actions_log)
+                summary = json.dumps(summary_data)
+            else:
+                summary = json.dumps({
+                    "overview": f"Browser automation task: {task_description}",
+                    "key_steps": [f"Executed {len(actions_log)} automation steps"],
+                    "outcome": "Task completed (no LLM summary available)",
+                    "duration_estimate": f"Approximately {len(actions_log)} steps",
+                    "notable_events": ["OpenAI API key required for detailed summaries"]
+                })
+            
+            # Save to database
+            with sqlite3.connect(DB_FILE) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT INTO tasks (id, description, status, result, gif_path, summary) VALUES (?, ?, ?, ?, ?, ?)",
+                    (task_id, task_description, 'COMPLETED', result, gif_path, summary)
+                )
+                conn.commit()
+            
+            # Clean up
+            screenshot_collector.save_metadata()
+            screenshot_collector.save_screenshots_to_disk()
+            
+    except Exception as e:
+        app.logger.error(f"Cloud interactive task {task_id} failed: {e}", exc_info=True)
+        update_manager.complete_task(task_id, f"Task failed: {e}")
+    
+    finally:
+        agent_manager.remove_agent(task_id)
+
+# --- Browser Use Cloud Interactive Task Execution ---
+async def execute_browser_use_cloud_task(task_id, task_description, continue_session=False):
+    """Execute browser task with Browser Use Cloud and interactive features"""
+    screenshot_collector = None
+    
+    try:
+        # Initialize screenshot collector
+        screenshot_collector = ScreenshotCollector(task_id)
+        
+        # Get Browser Use Cloud integration
+        cloud_integration = get_browser_use_cloud()
+        
+        if continue_session:
+            # For session continuation, we create a new task but keep the same browser
+            logging.info(f"🔄 Continuing Browser Use Cloud session {task_id}")
+            result = await cloud_integration.execute_cloud_task(f"{task_id}_continue_{int(time.time())}", task_description)
+        else:
+            # Execute task with Browser Use Cloud
+            logging.info(f"🚀 About to execute Browser Use Cloud task: {task_id}")
+            result = await cloud_integration.execute_cloud_task(task_id, task_description)
+            logging.info(f"📊 Browser Use Cloud task result: {result}")
+        
+        if result["success"]:
+            live_url = result.get('live_url')
+            logging.info(f"🌐 Browser Use Cloud task started with live URL: {live_url}")
+            
+            # Notify update manager about the cloud task
+            update_manager.add_task(
+                task_id, 
+                task_description, 
+                debug_port=None,  # Cloud browser doesn't use debug port
+                live_view_url=live_url,
+                session_id=result.get('task_id'),
+                browser_type='browser_use_cloud'
+            )
+            
+            # Provide user feedback about the task status
+            if live_url:
+                # Task started successfully with live view
+                if continue_session:
+                    action_type = 'session_smart_continue'
+                    description = '🧠 Browser Use Cloud continuation with live view available.'
+                else:
+                    action_type = 'browser_cloud_start'
+                    description = 'Browser Use Cloud task started successfully. Live view available.'
+                
+                logging.info(f"📤 Emitting task_step with live URL: {live_url}")
+                socketio.emit('task_step', {
+                    'task_id': task_id,
+                    'step': 2,
+                    'action': action_type,
+                    'description': description,
+                    'current_url': live_url
+                })
+                logging.info(f"✅ Task step emitted successfully")
+            else:
+                # Task started but no live view (API key issue likely)
+                action_type = 'browser_cloud_continue' if continue_session else 'browser_cloud_start'
+                description = ('Browser Use Cloud continuation task started (no live view - check API key)' if continue_session
+                             else 'Browser Use Cloud task started (no live view - check API key configuration)')
+                
+                socketio.emit('task_step', {
+                    'task_id': task_id,
+                    'step': 1,
+                    'action': action_type,
+                    'description': description,
+                    'current_url': ''
+                })
+            
+            # Wait for completion and get results
+            cloud_manager = cloud_integration.get_manager()
+            if cloud_manager:
+                # Get the cloud task - it might be stored under a different ID
+                cloud_task = cloud_manager.active_tasks.get(task_id)
+                
+                # If not found under our task_id, try to find it by the Browser Use Cloud task ID
+                if not cloud_task and result.get('task_id'):
+                    # Look for the task by Browser Use Cloud task ID
+                    for stored_task_id, stored_task in cloud_manager.active_tasks.items():
+                        if stored_task.task_id == result.get('task_id'):
+                            cloud_task = stored_task
+                            break
+                
+                if cloud_task:
+                    completion_result = cloud_manager.wait_for_completion(cloud_task, timeout=300, update_manager=update_manager)
+                else:
+                    logging.warning(f"⚠️ Could not find cloud task for completion monitoring: {task_id}")
+                    completion_result = {"status": "unknown", "result": "Task monitoring unavailable"}
+                
+                # Check if task was paused locally
+                if completion_result.get("local_pause", False):
+                    logging.info(f"⏸️ Task {task_id} was paused by user - stopping execution")
+                    socketio.emit('task_completed', {
+                        'task_id': task_id,
+                        'result': 'Task paused by user',
+                        'summary': None
+                    })
+                    return
+                
+                final_result = completion_result.get("result", "Task completed")
+                
+                # Generate summary for Browser Use Cloud task
+                if chat_llm_flash:
+                    summary_generator = TaskSummaryGenerator(chat_llm_flash)
+                else:
+                    summary_generator = None
+                    
+                if summary_generator:
+                    summary_data = summary_generator.generate_summary(
+                        task_description, 
+                        [f"Browser Use Cloud executed: {task_description}"]
+                    )
+                    summary = json.dumps(summary_data)
+                else:
+                    summary = json.dumps({
+                        "overview": f"Browser Use Cloud task: {task_description}",
+                        "key_steps": ["Executed task via Browser Use Cloud"],
+                        "outcome": "Task completed (no LLM summary available)",
+                        "duration_estimate": "Cloud execution time",
+                        "notable_events": ["OpenAI API key required for detailed summaries"]
+                    })
+                
+                # Save to database
+                with sqlite3.connect(DB_FILE) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "INSERT INTO tasks (id, description, status, result, gif_path, summary) VALUES (?, ?, ?, ?, ?, ?)",
+                        (task_id, task_description, 'COMPLETED', final_result, None, summary)
+                    )
+                    conn.commit()
+                
+                # Save task context for continuation BEFORE cleanup
+                update_manager.save_task_context(
+                    task_id=task_id,
+                    original_task=task_description,
+                    ai_output=final_result,
+                    final_url=cloud_task.live_url if cloud_task else None,
+                    browser_state={'summary': summary, 'completion_result': completion_result}
+                )
+                
+                # Move Browser Use Cloud task to paused mode (maintains browser state)
+                cloud_manager.cleanup_task(task_id)
+                
+                update_manager.complete_task(task_id, final_result, summary)
+            else:
+                update_manager.complete_task(task_id, "Browser Use Cloud not configured")
+        else:
+            # Failed to start task
+            error_msg = result.get("error", "Failed to start Browser Use Cloud task")
+            
+            # Send error feedback to user
+            socketio.emit('task_step', {
+                'task_id': task_id,
+                'step': 1,
+                'action': 'error',
+                'description': f'Failed to start browser task: {error_msg}',
+                'current_url': ''
+            })
+            
+            update_manager.complete_task(task_id, f"Task failed: {error_msg}")
+            
+    except Exception as e:
+        app.logger.error(f"Browser Use Cloud task {task_id} failed: {e}", exc_info=True)
+        update_manager.complete_task(task_id, f"Task failed: {e}")
+    
+    finally:
+        agent_manager.remove_agent(task_id)
+
+# --- Local Interactive Browser Task Execution (Backup) ---
+async def execute_interactive_browser_task(task_id, task_description):
+    """Execute browser task with interactive features"""
+    browser_session = None
+    screenshot_collector = None
+    
+    try:
+        # Initialize screenshot collector
+        screenshot_collector = ScreenshotCollector(task_id)
+        
+        # Browser session setup (same as before)
+        import tempfile
+        temp_profile_dir = tempfile.mkdtemp(prefix=f"browser_task_{task_id}_")
+        debug_port = 9223  # Use different port for interactive tasks
+        BrowserSessionWithScreenshots = None 
+        browser_session = BrowserSessionWithScreenshots(
+            browser_profile=BrowserProfile(
+                headless=False,
+                user_data_dir=temp_profile_dir,
+                args=[
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage', 
+                    '--disable-gpu',
+                    f'--remote-debugging-port={debug_port}',
+                    '--disable-web-security',
+                    '--enable-automation',
+                    '--no-first-run',
+                    '--disable-default-apps',
+                    '--disable-extensions',
+                    '--disable-background-networking',
+                    '--disable-sync',
+                    '--disable-component-extensions-with-background-pages',
+                ],
+                keep_alive=False,  # Change to False to avoid conflicts
+                enable_default_extensions=False,
+            ),
+            screenshot_collector=screenshot_collector
+        )
+        
+        if not browser_llm_available:
+            raise ValueError("Browser automation requires Browser Use Cloud API key. Please configure BROWSER_USE_CLOUD_API_KEY in your .env file.")
+        
+        # Create interactive agent
+        interactive_agent = agent_manager.create_agent(
+            task_id=task_id,
+            task_description=task_description,
+            browser_session=browser_session,
+            llm=None,  # Browser Use Cloud handles LLM internally
+            update_manager=update_manager
+        )
+        
+        # Store debug port for browser view
+        interactive_agent.debug_port = debug_port
+        
+        # Notify the update manager about the debug port
+        update_manager.add_task(task_id, task_description, debug_port)
+        
+        # Run the interactive task
+        result = await interactive_agent.run()
+        
+        # Generate GIF and summary after completion
+        gif_generator = TaskGifGenerator(task_id)
+        screenshots_b64 = screenshot_collector.get_screenshots_b64()
+        
+        gif_path = None
+        if screenshots_b64:
+            gif_path = gif_generator.generate_task_gif(screenshots_b64)
+        
+        if chat_llm_flash:
+            summary_generator = TaskSummaryGenerator(chat_llm_flash)
+        else:
+            summary_generator = None
+        actions_log = screenshot_collector.get_actions_log()
+        if summary_generator:
+            summary_data = summary_generator.generate_summary(task_description, actions_log)
+            summary = json.dumps(summary_data)
+        else:
+            summary = json.dumps({
+                "overview": f"Browser automation task: {task_description}",
+                "key_steps": [f"Executed {len(actions_log)} automation steps"],
+                "outcome": "Task completed (no LLM summary available)",
+                "duration_estimate": f"Approximately {len(actions_log)} steps",
+                "notable_events": ["OpenAI API key required for detailed summaries"]
+            })
+        
+        # Save to database
+        with sqlite3.connect(DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO tasks (id, description, status, result, gif_path, summary) VALUES (?, ?, ?, ?, ?, ?)",
+                (task_id, task_description, 'COMPLETED', result, gif_path, summary)
+            )
+            conn.commit()
+        
+        # Clean up
+        screenshot_collector.save_metadata()
+        screenshot_collector.save_screenshots_to_disk()
+        
+    except Exception as e:
+        app.logger.error(f"Interactive task {task_id} failed: {e}", exc_info=True)
+        update_manager.complete_task(task_id, f"Task failed: {e}")
+    
+    finally:
+        if browser_session:
+            await browser_session.close()
+        agent_manager.remove_agent(task_id)
+        
+        if 'temp_profile_dir' in locals() and os.path.exists(temp_profile_dir):
+            try:
+                shutil.rmtree(temp_profile_dir)
+            except Exception as e:
+                app.logger.error(f"Error cleaning up profile: {e}")
+
+if __name__ == '__main__':
+    init_db()
+    # Use SocketIO's run method instead of Flask's run method
+    socketio.run(app, host='0.0.0.0', port=8003, debug=False, allow_unsafe_werkzeug=True)

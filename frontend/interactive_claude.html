@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omnix AI - Interactive Browser</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Georgia, 'Times New Roman', Times, serif;
+            background: #f7f7f5;
+            color: #1a1a1a;
+            line-height: 1.6;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Chat Panel */
+        .chat-panel {
+            width: 400px;
+            background: white;
+            border-right: 1px solid #e5e5e5;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .chat-header {
+            background: white;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chat-title i {
+            color: #c17b47;
+            font-size: 1.2rem;
+        }
+
+        .mode-indicator {
+            background: #f0f0f0;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Messages */
+        .message {
+            max-width: 100%;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .message-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .user-avatar {
+            background: #e5e5e5;
+            color: #666;
+        }
+
+        .ai-avatar {
+            background: #c17b47;
+            color: white;
+        }
+
+        .message-role {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .message-content {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #1a1a1a;
+            margin-left: 32px;
+        }
+
+        /* Input Area */
+        .chat-input-area {
+            background: white;
+            border-top: 1px solid #e5e5e5;
+            padding: 1.5rem;
+        }
+
+        .chat-input-wrapper {
+            position: relative;
+            background: #f8f8f8;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .chat-input-wrapper:focus-within {
+            border-color: #c17b47;
+            box-shadow: 0 0 0 3px rgba(193, 123, 71, 0.1);
+            background: white;
+        }
+
+        #chat-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            resize: none;
+            font-family: inherit;
+            background: transparent;
+            min-height: 60px;
+            max-height: 200px;
+        }
+
+        #chat-input::placeholder {
+            color: #999;
+        }
+
+        .send-button {
+            position: absolute;
+            right: 8px;
+            bottom: 8px;
+            background: #c17b47;
+            border: none;
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        .send-button:hover {
+            background: #a66939;
+        }
+
+        .send-button:disabled {
+            background: #ddd;
+            cursor: not-allowed;
+        }
+
+        /* Browser Panel */
+        .browser-panel {
+            flex: 1;
+            background: #f7f7f5;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .browser-header {
+            background: white;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .browser-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ddd;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot.working {
+            background: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.error {
+            background: #ef4444;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .browser-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .browser-btn {
+            background: #f8f8f8;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .browser-btn:hover {
+            background: #f0f0f0;
+            border-color: #c17b47;
+        }
+
+        .browser-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .browser-view {
+            flex: 1;
+            position: relative;
+            background: white;
+            margin: 1rem;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .browser-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 8px;
+        }
+
+        .browser-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #f7f7f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #666;
+            z-index: 10;
+        }
+
+        .browser-overlay.hidden {
+            display: none;
+        }
+
+        .overlay-icon {
+            font-size: 3rem;
+            color: #c17b47;
+            margin-bottom: 1rem;
+            opacity: 0.7;
+        }
+
+        .overlay-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 0.5rem;
+        }
+
+        .overlay-subtitle {
+            font-size: 1rem;
+            color: #666;
+            text-align: center;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(247, 247, 245, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #666;
+            z-index: 20;
+        }
+
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e5e5;
+            border-radius: 50%;
+            border-top-color: #c17b47;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Loading message in chat */
+        .loading-message {
+            display: none;
+            margin-bottom: 1rem;
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 32px;
+        }
+
+        .loading-dots span {
+            width: 6px;
+            height: 6px;
+            background: #c17b47;
+            border-radius: 50%;
+            animation: loadingDots 1.5s infinite;
+        }
+
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes loadingDots {
+            0%, 80%, 100% { 
+                opacity: 0.3; 
+                transform: scale(0.8); 
+            }
+            40% { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .chat-panel {
+                width: 100%;
+                height: 50vh;
+                border-right: none;
+                border-bottom: 1px solid #e5e5e5;
+            }
+            
+            .browser-view {
+                margin: 0.5rem;
+            }
+            
+            .chat-header {
+                padding: 1rem;
+            }
+            
+            .chat-input-area {
+                padding: 1rem;
+            }
+            
+            .browser-header {
+                padding: 0.75rem 1rem;
+            }
+        }
+
+        /* Hidden utility */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Chat Panel -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <div class="chat-title">
+                    <i class="fas fa-robot"></i>
+                    Interactive Browser
+                </div>
+                <div class="mode-indicator">Browser Automation</div>
+            </div>
+
+            <div class="chat-messages" id="chat-messages">
+                <!-- Welcome message -->
+                <div class="message">
+                    <div class="message-header">
+                        <div class="message-avatar ai-avatar">AI</div>
+                        <div class="message-role">Omnix AI</div>
+                    </div>
+                    <div class="message-content">
+                        Welcome to Interactive Browser mode! I can help you automate web browsing tasks. 
+                        Just describe what you want to do and I'll control the browser for you.
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading-message" id="loading-message">
+                <div class="loading-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="chat-input-wrapper">
+                    <textarea id="chat-input" placeholder="Describe what you want me to do in the browser..." rows="1"></textarea>
+                    <button class="send-button" id="send-button">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browser Panel -->
+        <div class="browser-panel">
+            <div class="browser-header">
+                <div class="browser-status">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Ready</span>
+                </div>
+                
+                <div class="browser-controls">
+                    <button class="browser-btn" id="refresh-btn" disabled>
+                        <i class="fas fa-redo"></i>
+                        Refresh
+                    </button>
+                    <button class="browser-btn" id="screenshot-btn" disabled>
+                        <i class="fas fa-camera"></i>
+                        Screenshot
+                    </button>
+                </div>
+            </div>
+            
+            <div class="browser-view">
+                <div class="browser-overlay" id="browser-overlay">
+                    <div class="overlay-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div class="overlay-title">Browser Ready</div>
+                    <div class="overlay-subtitle">
+                        Send an instruction to start automated browsing
+                    </div>
+                </div>
+                
+                <div class="loading-overlay" id="loading-overlay">
+                    <div class="loading-spinner"></div>
+                    <p>Connecting to browser...</p>
+                </div>
+                
+                <iframe class="browser-iframe hidden" id="browser-iframe" src="about:blank"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // Global state
+        let currentTaskId = null;
+        let isProcessing = false;
+        let socket = null;
+        let browserDebugPort = null;
+
+        // DOM elements
+        const chatMessages = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const browserOverlay = document.getElementById('browser-overlay');
+        const browserIframe = document.getElementById('browser-iframe');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingMessage = document.getElementById('loading-message');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const screenshotBtn = document.getElementById('screenshot-btn');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            initializeSocket();
+        });
+
+        function setupEventListeners() {
+            // Chat input events
+            sendButton.addEventListener('click', handleSendMessage);
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                }
+            });
+
+            // Auto-resize textarea
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+            });
+
+            // Browser controls
+            refreshBtn.addEventListener('click', refreshBrowser);
+            screenshotBtn.addEventListener('click', takeScreenshot);
+        }
+
+        function initializeSocket() {
+            try {
+                socket = io({
+                    transports: ['polling'],
+                    upgrade: false,
+                    timeout: 20000,
+                    forceNew: true
+                });
+                
+                socket.on('connect', () => {
+                    console.log('✅ SocketIO Connected');
+                    updateStatus('connected', 'Connected');
+                });
+                
+                socket.on('disconnect', () => {
+                    console.log('❌ SocketIO Disconnected');
+                    updateStatus('error', 'Disconnected');
+                });
+                
+                socket.on('connect_error', (error) => {
+                    console.error('🔴 SocketIO Connection Error:', error);
+                    updateStatus('error', 'Connection Error');
+                });
+                
+                socket.on('error', (error) => {
+                    console.error('🔴 SocketIO Error:', error);
+                    addMessage('ai', `Socket error: ${error}`);
+                });
+                
+                // Task event listeners
+                socket.on('task_started', handleTaskStarted);
+                socket.on('task_step', handleTaskStep);
+                socket.on('task_completed', handleTaskCompleted);
+                socket.on('task_paused', handleTaskPaused);
+                socket.on('intervention_needed', handleInterventionNeeded);
+                
+            } catch (error) {
+                console.error('Failed to initialize SocketIO:', error);
+                updateStatus('error', 'Failed to Connect');
+            }
+        }
+
+        async function handleSendMessage() {
+            const message = chatInput.value.trim();
+            if (!message || isProcessing) return;
+            
+            isProcessing = true;
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+            
+            // Add user message
+            addMessage('user', message);
+            showLoading();
+            
+            try {
+                if (socket && socket.connected) {
+                    // Use socket for browser automation
+                    socket.emit('user_message', {
+                        message: message,
+                        task_id: currentTaskId
+                    });
+                } else {
+                    // Fallback to HTTP
+                    const response = await fetch('/run_task', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ task: message })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    hideLoading();
+                    
+                    if (data.task_id) {
+                        addMessage('ai', `Task started: ${data.task_id}`);
+                        currentTaskId = data.task_id;
+                        monitorTask(data.task_id);
+                    } else {
+                        addMessage('ai', 'Task failed to start');
+                    }
+                }
+            } catch (error) {
+                hideLoading();
+                addMessage('ai', `Error: ${error.message}`);
+                console.error('Error:', error);
+            }
+            
+            isProcessing = false;
+        }
+
+        function handleTaskStarted(data) {
+            console.log('Task started:', data);
+            currentTaskId = data.task_id;
+            updateStatus('working', 'Running Task');
+            hideLoading();
+            
+            // Store debug port and connect to browser
+            browserDebugPort = data.debug_port;
+            showBrowserView(data.debug_port);
+            
+            addMessage('ai', `Task started: ${data.task_description || 'Browser automation task'}`);
+        }
+
+        function handleTaskStep(data) {
+            console.log('Task step:', data);
+            addMessage('ai', `Step ${data.step}: ${data.description}`);
+            
+            // Handle browser connection for cloud services
+            if ((data.action === 'browser_cloud_start' || data.action === 'browser_cloud_continue') && 
+                data.current_url && (data.current_url.includes('browser-use.com') || data.current_url.includes('anchorbrowser.io'))) {
+                connectToBrowserCloud(data.current_url, data.task_id);
+            }
+        }
+
+        function handleTaskCompleted(data) {
+            console.log('Task completed:', data);
+            currentTaskId = null;
+            isProcessing = false;
+            updateStatus('connected', 'Task Completed');
+            
+            addMessage('ai', `Task completed: ${data.result || 'Success'}`);
+            
+            // Enable browser controls
+            refreshBtn.disabled = false;
+            screenshotBtn.disabled = false;
+        }
+
+        function handleTaskPaused(data) {
+            console.log('Task paused:', data);
+            updateStatus('working', 'Waiting for Input');
+            addMessage('ai', data.message || 'Task paused - waiting for your input');
+        }
+
+        function handleInterventionNeeded(data) {
+            console.log('Intervention needed:', data);
+            updateStatus('working', 'Needs Your Help');
+            addMessage('ai', data.message || 'I need your help to continue');
+        }
+
+        function updateStatus(status, text) {
+            statusText.textContent = text;
+            statusDot.className = `status-dot ${status}`;
+        }
+
+        function showBrowserView(debugPort) {
+            browserDebugPort = debugPort;
+            browserOverlay.classList.add('hidden');
+            
+            if (!debugPort) {
+                console.log('No debug port - waiting for cloud URL');
+                return;
+            }
+            
+            loadingOverlay.style.display = 'flex';
+            connectToBrowser(currentTaskId);
+        }
+
+        async function connectToBrowser(taskId) {
+            try {
+                const response = await fetch(`/browser_debug_info/${taskId}`);
+                const debugInfo = await response.json();
+                
+                if (debugInfo.available) {
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                        browserIframe.classList.remove('hidden');
+                        
+                        if (debugInfo.live_view_url) {
+                            browserIframe.src = debugInfo.live_view_url;
+                        } else if (debugInfo.devtools_url) {
+                            browserIframe.src = debugInfo.devtools_url;
+                        } else {
+                            browserIframe.src = `http://localhost:${debugInfo.debug_port}`;
+                        }
+                        
+                        refreshBtn.disabled = false;
+                        screenshotBtn.disabled = false;
+                        
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Browser connection error:', error);
+                loadingOverlay.style.display = 'none';
+                addMessage('ai', 'Could not connect to browser view');
+            }
+        }
+
+        function connectToBrowserCloud(liveUrl, taskId) {
+            if (!liveUrl || (!liveUrl.includes('anchorbrowser.io') && !liveUrl.includes('browser-use.com'))) {
+                return;
+            }
+
+            browserOverlay.classList.add('hidden');
+            loadingOverlay.style.display = 'flex';
+            
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                browserIframe.classList.remove('hidden');
+                browserIframe.src = liveUrl;
+                
+                refreshBtn.disabled = false;
+                screenshotBtn.disabled = false;
+                
+                console.log(`Connected to Browser Cloud: ${taskId}`);
+            }, 500);
+        }
+
+        function monitorTask(taskId) {
+            const eventSource = new EventSource(`/stream/${taskId}`);
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                addMessage('ai', `${data.status}: ${data.result || ''}`);
+                
+                if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+                    eventSource.close();
+                    updateStatus('connected', data.status);
+                }
+            };
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+        }
+
+        function refreshBrowser() {
+            if (browserIframe.src && browserIframe.src !== 'about:blank') {
+                browserIframe.src = browserIframe.src;
+            }
+        }
+
+        function takeScreenshot() {
+            addMessage('ai', 'Taking screenshot...');
+            // Screenshot functionality would go here
+        }
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const avatar = document.createElement('div');
+            avatar.className = `message-avatar ${role}-avatar`;
+            avatar.textContent = role === 'user' ? 'U' : 'AI';
+            
+            const roleSpan = document.createElement('span');
+            roleSpan.className = 'message-role';
+            roleSpan.textContent = role === 'user' ? 'You' : 'Omnix AI';
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.appendChild(avatar);
+            header.appendChild(roleSpan);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(contentDiv);
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function showLoading() {
+            loadingMessage.style.display = 'block';
+            scrollToBottom();
+        }
+
+        function hideLoading() {
+            loadingMessage.style.display = 'none';
+        }
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    </script>
+</body>
+</html>

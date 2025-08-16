@@ -1,0 +1,16 @@
+flask
+python-dotenv
+langchain-google-genai
+google-generativeai
+pydantic
+browser-use
+requests
+whisper
+pydub
+praisonaiagents
+PyJWT
+flask-socketio
+websockets
+pyaudio
+numpy
+google-cloud-speech

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perplexity Voice Animation</title>
+    <style>
+        /* Voice Sphere Container */
+        .voice-sphere-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .voice-sphere {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: visible;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+        }
+
+        .voice-sphere:hover {
+            transform: scale(1.02);
+        }
+
+        .shifting-dots {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .voice-dot {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #8B8B8B;
+            border-radius: 50%;
+            opacity: 0.7;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+            will-change: transform, opacity, background-color;
+        }
+
+        .voice-dot.scattered {
+            animation: scatter 0.6s ease-out;
+        }
+
+        .voice-dot.active {
+            background: #2DD4BF;
+            opacity: 1;
+        }
+
+        .voice-dot.ai-speaking {
+            background: #7C3AED;
+            opacity: 1;
+        }
+
+        @keyframes scatter {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                transform: translate(var(--scatter-x), var(--scatter-y)) scale(1.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0);
+            }
+            33% {
+                transform: translate(2px, -2px);
+            }
+            66% {
+                transform: translate(-2px, 1px);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.3;
+                transform: scale(0.95);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes ripple {
+            0% {
+                transform: scale(1);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scale(1.8);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .voice-sphere {
+                width: 250px;
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="voice-sphere-container">
+        <div class="voice-sphere" id="voice-sphere">
+            <div class="shifting-dots" id="shifting-dots"></div>
+        </div>
+    </div>
+
+    <script>
+        class PerplexityVoiceSphere {
+            constructor() {
+                this.voiceSphere = document.getElementById('voice-sphere');
+                this.shiftingDots = document.getElementById('shifting-dots');
+                this.dots = [];
+                this.animationFrameId = null;
+                this.mode = 'idle';
+                this.mousePosition = { x: 0, y: 0 };
+                this.audioLevel = 0;
+                this.time = 0;
+                
+                this.init();
+            }
+
+            init() {
+                this.createDots();
+                this.setupInteractions();
+                this.startAnimation();
+            }
+
+            createDots() {
+                // Create Perplexity-style dot pattern
+                const totalDots = 180; // Increased for denser pattern
+                const centerX = 150;
+                const centerY = 150;
+
+                // Create dots in multiple rings + scattered pattern
+                for (let i = 0; i < totalDots; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'voice-dot';
+                    
+                    let x, y, radius, angle;
+                    
+                    // Distribution: 60% outer ring, 30% middle rings, 10% scattered
+                    const distribution = i / totalDots;
+                    
+                    if (distribution < 0.6) {
+                        // Outer ring with slight variation
+                        angle = (i / (totalDots * 0.6)) * Math.PI * 2;
+                        radius = 110 + Math.random() * 10;
+                    } else if (distribution < 0.9) {
+                        // Middle rings
+                        angle = ((i - totalDots * 0.6) / (totalDots * 0.3)) * Math.PI * 2;
+                        radius = 40 + Math.random() * 60;
+                    } else {
+                        // Scattered inner dots
+                        angle = Math.random() * Math.PI * 2;
+                        radius = Math.random() * 40;
+                    }
+                    
+                    x = centerX + Math.cos(angle) * radius;
+                    y = centerY + Math.sin(angle) * radius;
+                    
+                    dot.style.left = x + 'px';
+                    dot.style.top = y + 'px';
+                    
+                    // Store dot data
+                    const dotData = {
+                        element: dot,
+                        baseX: x,
+                        baseY: y,
+                        currentX: x,
+                        currentY: y,
+                        angle: angle,
+                        radius: radius,
+                        speed: 0.3 + Math.random() * 0.7,
+                        phaseOffset: Math.random() * Math.PI * 2,
+                        floatAmplitude: 0.5 + Math.random() * 1.5,
+                        responseStrength: 0.5 + Math.random() * 0.5
+                    };
+                    
+                    this.dots.push(dotData);
+                    this.shiftingDots.appendChild(dot);
+                }
+            }
+
+            setupInteractions() {
+                // Mouse/touch interaction for scatter effect
+                this.voiceSphere.addEventListener('mousemove', (e) => {
+                    const rect = this.voiceSphere.getBoundingClientRect();
+                    this.mousePosition = {
+                        x: e.clientX - rect.left - 150,
+                        y: e.clientY - rect.top - 150
+                    };
+                    this.scatterNearbyDots();
+                });
+
+                this.voiceSphere.addEventListener('mouseleave', () => {
+                    this.mousePosition = { x: 0, y: 0 };
+                    this.resetDots();
+                });
+
+                // Touch interactions
+                this.voiceSphere.addEventListener('touchmove', (e) => {
+                    const rect = this.voiceSphere.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    this.mousePosition = {
+                        x: touch.clientX - rect.left - 150,
+                        y: touch.clientY - rect.top - 150
+                    };
+                    this.scatterNearbyDots();
+                });
+
+                this.voiceSphere.addEventListener('touchend', () => {
+                    this.mousePosition = { x: 0, y: 0 };
+                    this.resetDots();
+                });
+
+                // Click for pulse effect
+                this.voiceSphere.addEventListener('click', () => {
+                    this.createRipple();
+                });
+            }
+
+            scatterNearbyDots() {
+                const scatterRadius = 50;
+                
+                this.dots.forEach(dot => {
+                    const dx = dot.currentX - 150 - this.mousePosition.x;
+                    const dy = dot.currentY - 150 - this.mousePosition.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < scatterRadius) {
+                        const force = 1 - (distance / scatterRadius);
+                        const scatterX = dx * force * 30;
+                        const scatterY = dy * force * 30;
+                        
+                        dot.element.style.setProperty('--scatter-x', `${scatterX}px`);
+                        dot.element.style.setProperty('--scatter-y', `${scatterY}px`);
+                        dot.element.classList.add('scattered');
+                        
+                        // Update position with scatter
+                        const newX = dot.baseX + scatterX * 0.3;
+                        const newY = dot.baseY + scatterY * 0.3;
+                        dot.element.style.transform = `translate(${newX - dot.baseX}px, ${newY - dot.baseY}px)`;
+                    }
+                });
+            }
+
+            resetDots() {
+                this.dots.forEach(dot => {
+                    dot.element.classList.remove('scattered');
+                    dot.element.style.transform = '';
+                });
+            }
+
+            createRipple() {
+                this.dots.forEach((dot, index) => {
+                    setTimeout(() => {
+                        dot.element.style.animation = 'ripple 0.8s ease-out';
+                        setTimeout(() => {
+                            dot.element.style.animation = '';
+                        }, 800);
+                    }, index * 2);
+                });
+            }
+
+            setMode(newMode) {
+                this.mode = newMode;
+                
+                this.dots.forEach(dot => {
+                    dot.element.classList.remove('active', 'ai-speaking');
+                    
+                    if (newMode === 'user_speaking') {
+                        dot.element.classList.add('active');
+                    } else if (newMode === 'ai_responding') {
+                        dot.element.classList.add('ai-speaking');
+                    }
+                });
+            }
+
+            startAnimation() {
+                const animate = () => {
+                    this.time += 0.016; // Assuming 60fps
+                    
+                    this.dots.forEach(dot => {
+                        let x = dot.baseX;
+                        let y = dot.baseY;
+                        
+                        // Base floating animation
+                        const floatX = Math.sin(this.time * dot.speed + dot.phaseOffset) * dot.floatAmplitude;
+                        const floatY = Math.cos(this.time * dot.speed * 0.7 + dot.phaseOffset) * dot.floatAmplitude;
+                        
+                        // Mode-specific animations
+                        if (this.mode === 'idle') {
+                            // Gentle circular motion
+                            const breathe = Math.sin(this.time * 0.5) * 2;
+                            x += floatX + Math.cos(dot.angle + this.time * 0.1) * breathe;
+                            y += floatY + Math.sin(dot.angle + this.time * 0.1) * breathe;
+                            
+                        } else if (this.mode === 'user_speaking') {
+                            // Inward contraction with audio response
+                            const contraction = 0.7 + Math.sin(this.time * 3) * 0.1 + this.audioLevel * 0.2;
+                            const newRadius = dot.radius * contraction;
+                            x = 150 + Math.cos(dot.angle) * newRadius;
+                            y = 150 + Math.sin(dot.angle) * newRadius;
+                            
+                            // Add vibration based on audio
+                            x += Math.random() * this.audioLevel * 10 - 5;
+                            y += Math.random() * this.audioLevel * 10 - 5;
+                            
+                        } else if (this.mode === 'ai_responding') {
+                            // Outward expansion with rhythmic pulse
+                            const expansion = 1.2 + Math.sin(this.time * 2 + dot.phaseOffset) * 0.15;
+                            const newRadius = dot.radius * expansion;
+                            x = 150 + Math.cos(dot.angle + this.time * 0.2) * newRadius;
+                            y = 150 + Math.sin(dot.angle + this.time * 0.2) * newRadius;
+                            
+                            // Add flowing motion
+                            x += Math.sin(this.time * 1.5 + dot.phaseOffset) * 3;
+                            y += Math.cos(this.time * 1.5 + dot.phaseOffset) * 3;
+                        }
+                        
+                        // Apply smooth transition
+                        dot.currentX = dot.currentX + (x - dot.currentX) * 0.1;
+                        dot.currentY = dot.currentY + (y - dot.currentY) * 0.1;
+                        
+                        // Don't override scatter transform if active
+                        if (!dot.element.classList.contains('scattered')) {
+                            dot.element.style.transform = 
+                                `translate(${dot.currentX - dot.baseX}px, ${dot.currentY - dot.baseY}px)`;
+                        }
+                        
+                        // Dynamic opacity
+                        const baseOpacity = this.mode === 'idle' ? 0.5 : 0.8;
+                        const opacityVariation = Math.sin(this.time * dot.speed * 2 + dot.phaseOffset) * 0.2;
+                        dot.element.style.opacity = baseOpacity + opacityVariation;
+                    });
+                    
+                    this.animationFrameId = requestAnimationFrame(animate);
+                };
+                
+                animate();
+            }
+
+            // Simulate audio level for demo
+            simulateAudioLevel() {
+                if (this.mode === 'user_speaking') {
+                    this.audioLevel = 0.3 + Math.random() * 0.7;
+                } else {
+                    this.audioLevel = Math.max(0, this.audioLevel - 0.05);
+                }
+            }
+
+            destroy() {
+                if (this.animationFrameId) {
+                    cancelAnimationFrame(this.animationFrameId);
+                }
+            }
+        }
+
+        // Initialize the animation
+        const voiceSphere = new PerplexityVoiceSphere();
+
+        // Demo controls for testing modes
+        window.voiceSphere = voiceSphere;
+        
+        // Example: Test different modes
+        // voiceSphere.setMode('user_speaking');
+        // voiceSphere.setMode('ai_responding');
+        // voiceSphere.setMode('idle');
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Environment variables
+.env
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Database file
+tasks.db
+
+# Log files
+server.log
+
+# Task data and generated GIFs
+task_data/
+task_gifs/
+
+# IDE specific files
+.claude/
+.vscode/
+
+# User-specific data
+C:/Users/
