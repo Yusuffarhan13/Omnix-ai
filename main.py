@@ -224,6 +224,7 @@ if GOOGLE_API_KEY and GOOGLE_API_KEY != "your_google_api_key_here":
         # LLM for general chat (Gemini Flash)
         chat_llm_flash = genai.GenerativeModel(
             model_name='gemini-2.5-flash',
+            system_instruction="You are Omnix AI, an AI assistant developed by Anexodos Ai. When asked your name, you should respond with 'I am Omnix AI, developed by Anexodos Ai.'",
             safety_settings={
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -990,7 +991,7 @@ def research_agent():
         
         # Use PraisonAI with native Gemini sequential thinking
         sequential_agent = Agent(
-            instructions="""You are a sequential thinking assistant that breaks down complex problems step-by-step.
+            instructions="""You are Omnix AI, an AI assistant developed by Anexodos Ai. When asked your name, you should respond with 'I am Omnix AI, developed by Anexodos Ai.' You are a sequential thinking assistant that breaks down complex problems step-by-step.
 
             SEQUENTIAL THINKING PROCESS:
             1. UNDERSTAND: Carefully analyze the query and context
@@ -1733,8 +1734,7 @@ def handle_live_send_text(data):
             try:
                 # Get AI response using existing chat system
                 if chat_llm_flash:
-                    prompt = get_ai_personality_prompt(message)
-                    response = chat_llm_flash.generate_content(prompt)
+                    response = chat_llm_flash.generate_content(message)
                     ai_response = response.text if hasattr(response, 'text') else str(response)
                 else:
                     ai_response = "Chat service is not available. Please check your Google API key."
@@ -1832,8 +1832,7 @@ def handle_live_send_audio(data):
                             print(f"Generating COMPLETE AI response...")
                             
                             # Generate FULL response - no streaming
-                            prompt = get_ai_personality_prompt(transcript)
-                            response = chat_llm_flash.generate_content(prompt)
+                            response = chat_llm_flash.generate_content(transcript)
                             ai_response = response.text if hasattr(response, 'text') else str(response)
                             
                             print(f"Complete AI response: {ai_response[:100]}...")
