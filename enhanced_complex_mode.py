@@ -239,23 +239,19 @@ class EnhancedComplexModeManager:
         try:
             self.shared_memory.clear_memory()
 
-            # Step 1: Multi-Stage Reasoning (Disabled to save memory)
-            # self.logger.info("🧠 Starting Multi-Stage Reasoning...")
-            # analysis_result, architecture_result, implementation_result = await self.multi_stage_reasoning(task)
-            # self.shared_memory.add_response('multi_stage_analysis', analysis_result)
-            # self.shared_memory.add_response('multi_stage_architecture', architecture_result)
-            # self.shared_memory.add_response('multi_stage_implementation', implementation_result)
-            # session['results']['multi_stage_reasoning'] = {
-            #     'analysis': analysis_result,
-            #     'architecture': architecture_result,
-            #     'implementation': implementation_result
-            # }
+            # Step 1: Multi-Stage Reasoning
+            self.logger.info("🧠 Starting Multi-Stage Reasoning...")
+            multi_stage_result = await self.multi_stage_reasoning(task)
+            self.shared_memory.add_response('multi_stage_analysis', multi_stage_result['analysis'])
+            self.shared_memory.add_response('multi_stage_architecture', multi_stage_result['architecture'])
+            self.shared_memory.add_response('multi_stage_implementation', multi_stage_result['implementation'])
+            session['results']['multi_stage_reasoning'] = multi_stage_result
 
-            # Step 2: Multi-Perspective Analysis (Disabled to save memory)
-            # self.logger.info("🧠 Starting Multi-Perspective Analysis...")
-            # perspective_analysis_result = await self.multi_perspective_analysis(task)
-            # self.shared_memory.add_response('multi_perspective_analysis', perspective_analysis_result)
-            # session['results']['multi_perspective_analysis'] = perspective_analysis_result
+            # Step 2: Multi-Perspective Analysis
+            self.logger.info("🧠 Starting Multi-Perspective Analysis...")
+            perspective_analysis_result = await self.multi_perspective_analysis(task)
+            self.shared_memory.add_response('multi_perspective_analysis', perspective_analysis_result)
+            session['results']['multi_perspective_analysis'] = perspective_analysis_result
 
             # Step 3: Enhanced Sequential Thinking
             self.logger.info("🧠 Starting Enhanced Sequential Thinking...")
@@ -309,50 +305,43 @@ class EnhancedComplexModeManager:
         
         return "\n\n".join(context_parts) if context_parts else "No analysis context available."
 
-    async def multi_stage_reasoning(self, prompt: str):
-        """Performs multi-stage reasoning on a given prompt."""
-        # Stage 1: Deep Problem Analysis
-        analysis_prompt = f"""
-        [DEEP THINK MODE]
-        Original Task: {prompt}
-        Please provide a comprehensive analysis:
-        1. **Core Problem**: What is the fundamental challenge?
-        2. **Hidden Requirements**: What unstated constraints exist?
-        3. **Success Criteria**: How will we measure a good solution?
-        4. **Risk Factors**: What could go wrong?
-        5. **Resource Constraints**: What limitations must we consider?
-        Think through each aspect systematically.
-        """
-        analysis_result = await asyncio.to_thread(self.gemini_manager.langchain_model.invoke, analysis_prompt)
+    async def multi_stage_reasoning(self, prompt: str) -> Dict[str, str]:
+        """Performs multi-stage reasoning in a single, optimized call."""
+        reasoning_prompt = f"""
+        Analyze the following task and provide a structured response in JSON format.
+        The JSON object should contain three keys: "analysis", "architecture", and "implementation".
 
-        # Stage 2: Solution Architecture
-        architecture_prompt = f"""
-        Based on the analysis below, design the solution architecture:
-        {analysis_result.content}
-        1. **High-level Strategy**: Top-down approach overview
-        2. **Component Breakdown**: Modular solution structure
-        3. **Implementation Phases**: Step-by-step execution plan
-        4. **Testing Strategy**: How to verify correctness
-        5. **Optimization Points**: Where to focus for best results
-        """
-        architecture_result = await asyncio.to_thread(self.gemini_manager.langchain_model.invoke, architecture_prompt)
+        TASK: "{prompt}"
 
-        # Stage 3: Detailed Implementation
-        implementation_prompt = f"""
-        Now implement the solution with full reasoning:
-        **Implementation Plan**:
-        {architecture_result.content}
-        **Detailed Steps**:
-        1. Setup and initialization
-        2. Core logic implementation
-        3. Error handling and edge cases
-        4. Performance optimization
-        5. Final verification
-        Show your complete thought process for each step.
-        """
-        implementation_result = await asyncio.to_thread(self.gemini_manager.langchain_model.invoke, implementation_prompt)
+        1.  **Analysis**: Deeply analyze the problem. Identify core challenges, hidden requirements, success criteria, risks, and constraints.
+        2.  **Architecture**: Based on the analysis, design a high-level solution architecture. Describe the strategy, components, implementation phases, and testing plan.
+        3.  **Implementation**: Provide a detailed implementation plan based on the architecture. Cover setup, core logic, error handling, and verification.
 
-        return analysis_result.content, architecture_result.content, implementation_result.content
+        Return ONLY the JSON object.
+        """
+        
+        try:
+            response = await asyncio.to_thread(
+                self.gemini_manager.langchain_model.invoke,
+                reasoning_prompt
+            )
+            
+            # Extract JSON from the response content
+            json_response = json.loads(response.content)
+            
+            return {
+                'analysis': json_response.get('analysis', ''),
+                'architecture': json_response.get('architecture', ''),
+                'implementation': json_response.get('implementation', '')
+            }
+        except (json.JSONDecodeError, AttributeError) as e:
+            self.logger.error(f"❌ Failed to parse multi-stage reasoning response: {e}")
+            # Fallback to a simpler, single-string response
+            return {
+                'analysis': "Analysis could not be generated.",
+                'architecture': "Architecture could not be generated.",
+                'implementation': "Implementation plan could not be generated."
+            }
 
     async def multi_perspective_analysis(self, prompt: str):
         """Performs multi-perspective analysis on a given prompt."""
