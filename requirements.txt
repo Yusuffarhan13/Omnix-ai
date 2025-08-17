@@ -24,3 +24,4 @@ praisonaiagents
 browserbase
 docker
 pathlib2
+google-cloud-speech   
