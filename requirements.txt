@@ -20,3 +20,6 @@ gunicorn
 openai
 whisper
 praisonaiagents
+browserbase
+docker
+pathlib2
