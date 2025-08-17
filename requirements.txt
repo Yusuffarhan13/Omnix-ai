@@ -19,3 +19,4 @@ typing-extensions
 gunicorn
 openai
 whisper
+praisonaiagents
