@@ -41,7 +41,7 @@ class GoogleCloudSTTProcessor:
         
         if GOOGLE_SPEECH_AVAILABLE:
             try:
-                api_key = os.getenv("GOOGLE_CLOUD_SPEECH_API_KEY")
+                api_key = os.getenv("GOOGLE_CLOUD_SPEECH_API_KEY") or os.getenv("GOOGLE_API_KEY")
                 if api_key:
                     client_options = ClientOptions(api_key=api_key)
                     self.client = speech.SpeechClient(client_options=client_options)
