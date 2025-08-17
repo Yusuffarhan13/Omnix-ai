@@ -42,7 +42,7 @@ import queue
 
 # Disable browser-use telemetry to keep everything local
 
-ScreenshotCollector = None
+from screenshot_collector import ScreenshotCollector
 
 # Initialize interactive agent manager
 agent_manager = InteractiveAgentManager()
@@ -486,7 +486,6 @@ async def execute_browser_task(task_id, task_description):
     try:
         update_status('RUNNING', 'Cleaning up previous browser sessions...')
         
-        ScreenshotCollector = None
 
         # Initialize screenshot collector
         screenshot_collector = ScreenshotCollector(task_id)
@@ -514,7 +513,16 @@ async def execute_browser_task(task_id, task_description):
         # Use a fixed debugging port to avoid conflicts
         debug_port = 9222
         
-        BrowserSessionWithScreenshots = None
+        class BrowserSessionWithScreenshots(BrowserSession):
+            def __init__(self, screenshot_collector, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.screenshot_collector = screenshot_collector
+
+            async def _handle_action(self, action, *args, **kwargs):
+                result = await super()._handle_action(action, *args, **kwargs)
+                screenshot_b64 = await self.page.screenshot(type="png", encoding="base64")
+                self.screenshot_collector.add_screenshot(screenshot_b64, action)
+                return result
 
         # Use configuration that works with Chromium (Playwright default) with screenshot collector
         browser_session = BrowserSessionWithScreenshots(
