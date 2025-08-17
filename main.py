@@ -32,7 +32,13 @@ from interactive_agent import InteractiveAgentManager
 from cloud_browser import get_cloud_browser_manager, ManagedCloudBrowserSession
 from browser_use_cloud import get_browser_use_cloud
 from stt_tts_system import create_stt_tts_manager
+from enhanced_complex_mode import EnhancedComplexModeManager
+from enhanced_research_mode import EnhancedResearchManager
+from reasoning_orchestrator import DynamicReasoningOrchestrator
+from reasoning_orchestrator import DynamicReasoningOrchestrator
 import re
+from flask import Response
+import queue
 
 # Disable browser-use telemetry to keep everything local
 
@@ -41,11 +47,15 @@ ScreenshotCollector = None
 # Initialize interactive agent manager
 agent_manager = InteractiveAgentManager()
 
+# Initialize enhanced complex mode manager
+enhanced_complex_manager = None
+enhanced_research_manager = None
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Initialize STT/TTS system
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")  # Rachel voice
+ELEVENLABS_VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID", "dMyQqiVXTU80dDl2eNK8")  # Eryn voice
 ELEVENLABS_AGENT_ID = os.getenv("ELEVENLABS_AGENT_ID", "agent_1801k2s1wbt3fxmrfhy6zzarrhex")
 
 # Ensure this is set BEFORE creating manager
@@ -93,6 +103,11 @@ socketio = SocketIO(
 
 # --- Configuration ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Remove placeholder OpenAI API key to prevent 401 errors in MCP servers
+if OPENAI_API_KEY and ("your_" in OPENAI_API_KEY.lower() or "placeholder" in OPENAI_API_KEY.lower()):
+    OPENAI_API_KEY = None
+    os.environ.pop("OPENAI_API_KEY", None)  # Remove from environment entirely
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GOOGLE_CLOUD_SPEECH_API_KEY = os.getenv("GOOGLE_CLOUD_SPEECH_API_KEY")
 BROWSER_USE_CLOUD_API_KEY = os.getenv("BROWSER_USE_CLOUD_API_KEY")
@@ -218,6 +233,21 @@ if GOOGLE_API_KEY and GOOGLE_API_KEY != "your_google_api_key_here":
         )
         
         print("✅ Gemini 2.5 Pro/Flash initialized for chat and research")
+        
+        # Initialize enhanced complex mode and research managers
+        try:
+            enhanced_complex_manager = EnhancedComplexModeManager(GOOGLE_API_KEY)
+            enhanced_research_manager = EnhancedResearchManager(
+                enhanced_complex_manager.gemini_manager,
+                brave_api_key=BRAVE_API_KEY
+            )
+            print("✅ Enhanced Complex Mode and Research Manager initialized")
+            orchestrator = DynamicReasoningOrchestrator(GOOGLE_API_KEY, BRAVE_API_KEY)
+            orchestrator = DynamicReasoningOrchestrator(GOOGLE_API_KEY, BRAVE_API_KEY)
+        except Exception as e:
+            print(f"⚠️ Enhanced modes initialization failed: {e}")
+            enhanced_complex_manager = None
+            enhanced_research_manager = None
     except Exception as e:
         print(f"❌ Failed to initialize Gemini LLMs: {e}")
         print("   Chat and research features will not work without a valid Google API key.")
@@ -591,9 +621,16 @@ def interactive():
 def live_conversation():
     return send_from_directory(app.template_folder, 'live_conversation.html')
 
+@app.route('/enhanced')
+def enhanced_complex_mode():
+    return send_from_directory(app.template_folder, 'enhanced_complex_mode.html')
+
 @app.route('/debug')
 def debug_frontend():
     return send_from_directory('.', 'debug_frontend.html')
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/console-test.js')
 def console_test():
@@ -943,11 +980,25 @@ def research_agent():
             context += f"Title: {title}\nURL: {url}\nSnippet: {description}\n\n"
             sources.append({"title": title, "url": url})
         
-        # Use PraisonAI for sequential thinking with Gemini
+        # Use PraisonAI with native Gemini sequential thinking
         sequential_agent = Agent(
-            instructions="You are a helpful assistant that can break down complex problems. Use the available tools when relevant to perform step-by-step analysis.",
-            llm="gemini-2.5-flash",
-            tools=MCP("npx -y @modelcontextprotocol/server-sequential-thinking", env={"GOOGLE_API_KEY": GOOGLE_API_KEY})
+            instructions="""You are a sequential thinking assistant that breaks down complex problems step-by-step.
+
+            SEQUENTIAL THINKING PROCESS:
+            1. UNDERSTAND: Carefully analyze the query and context
+            2. DECOMPOSE: Break down the problem into logical steps
+            3. REASON: Think through each step systematically
+            4. SYNTHESIZE: Combine insights into a coherent answer
+            5. VALIDATE: Check the logic and completeness
+
+            For each response:
+            - Show your step-by-step reasoning process
+            - Explain how you arrived at your conclusions
+            - Build upon the provided context systematically
+            - Ensure logical flow between ideas
+
+            Always demonstrate clear, structured thinking in your analysis.""",
+            llm="gemini/gemini-2.5-flash"
         )
         thinking_result = sequential_agent.start(f"Based on the following context, break down the answer to the query: '{query}'.\n\nContext:\n{context}")
         
@@ -969,59 +1020,248 @@ def research_agent():
         app.logger.error(f"Research agent failed: {e}", exc_info=True)
         return jsonify({'error': 'Failed to perform research.'}), 500
 
-@app.route('/complex_task', methods=['POST'])
-def complex_task_agent():
+@app.route('/unified_reasoning', methods=['POST'])
+def unified_reasoning():
     data = request.get_json()
     prompt = data.get('prompt', '').strip()
-    if not prompt: return jsonify({'error': 'Prompt cannot be empty'}), 400
+    if not prompt:
+        return jsonify({'error': 'Prompt cannot be empty'}), 400
+
+    if not enhanced_complex_manager:
+        return jsonify({'error': 'Enhanced complex mode not available'}), 500
+
     try:
-        # Step 1: Use PraisonAI for sequential thinking with Gemini
-        sequential_agent = Agent(
-            instructions="You are a helpful assistant that can break down complex problems. Use the available tools when relevant to perform step-by-step analysis.",
-            llm="gemini-2.5-pro",
-            tools=MCP("npx -y @modelcontextprotocol/server-sequential-thinking", env={"GOOGLE_API_KEY": GOOGLE_API_KEY})
-        )
-        thinking_result = sequential_agent.start(f"Break down the steps to solve the following task: {prompt}")
-
-        github_context = ""
-        if "code" in prompt.lower() or "github" in prompt.lower():
-            # Step 2: Use PraisonAI for GitHub interaction with Gemini
-            github_agent = Agent(
-                instructions="You are a helpful assistant that can interact with GitHub. Use the available tools when relevant to answer user questions.",
-                llm="gemini-2.5-flash",
-                tools=MCP("npx -y @modelcontextprotocol/server-github", env={"GITHUB_PERSONAL_ACCESS_TOKEN": GITHUB_PERSONAL_ACCESS_TOKEN, "GOOGLE_API_KEY": GOOGLE_API_KEY})
+        # This function will run all reasoning processes and synthesize the results
+        def run_unified_reasoning():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                enhanced_complex_manager.process_complex_task(prompt)
             )
-            # You might need to formulate a more specific query for the GitHub agent based on the prompt
-            github_context = github_agent.start(f"Based on the task '{prompt}', what information can you find on GitHub?")
+            loop.close()
+            return result
 
-        system_prompt = """You are an expert-level AI assistant for complex problem-solving.
-        You have been provided with a step-by-step plan from a sequential thinking agent and, optionally, context from a GitHub agent.
-        Your task is to synthesize this information to produce a final, complete, and accurate solution.
-        If the task requires code, write clean, efficient, and well-commented Python code.
-        Format your response clearly, using Markdown for code blocks and explanations."""
-       
-        full_prompt = f"""
-        {system_prompt}
-        Original User Task:
-        {prompt}
-        Sequential Thinking Breakdown:
-        {thinking_result}
-        GitHub Context:
-        {github_context or "Not applicable."}
-        Now, provide the final solution.
-        """
-        if llm_pro:
-            response = llm_pro.invoke(full_prompt)
-            return jsonify({'response': response.content})
-        elif chat_llm_flash:
-            response = chat_llm_flash.generate_content(full_prompt)
-            return jsonify({'response': response.text})
-        else:
-            return jsonify({'error': 'Google API key required for complex tasks. Please configure GOOGLE_API_KEY in your .env file.'})
+        # Run in a thread to avoid blocking the main thread
+        final_result = executor.submit(run_unified_reasoning).result(timeout=600) # 10 minute timeout
+
+        return jsonify(final_result)
+
     except Exception as e:
-        app.logger.error(f"Complex task agent failed: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to process the complex task.'}), 500
+        app.logger.error(f"Unified reasoning task failed: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to process the unified reasoning task: {str(e)}'}), 500
 
+
+@app.route('/complex_task', methods=['POST'])
+def complex_task_endpoint():
+    """Endpoint for handling complex, streaming tasks."""
+    data = request.get_json()
+    prompt = data.get('prompt', '').strip()
+    if not prompt:
+        return jsonify({'error': 'Prompt cannot be empty'}), 400
+
+    if not enhanced_complex_manager:
+        return jsonify({'error': 'Enhanced complex mode not available'}), 500
+
+    # The stream_complex_task function returns a Response object
+    return stream_complex_task(prompt, data)
+class StreamingLogHandler(logging.Handler):
+    """Custom log handler that captures logs and puts them in a queue for streaming"""
+    
+    def __init__(self, log_queue):
+        super().__init__()
+        self.log_queue = log_queue
+    
+    def emit(self, record):
+        try:
+            # Format the log message
+            log_entry = {
+                'timestamp': record.created,
+                'level': record.levelname,
+                'message': record.getMessage(),
+                'module': record.module,
+                'lineno': record.lineno
+            }
+            # Put the log entry in the queue
+            self.log_queue.put(log_entry)
+        except Exception:
+            pass  # Ignore handler errors
+
+def stream_complex_task(prompt, request_data):
+    """Stream complex task processing with real-time logs"""
+    
+    def generate_stream():
+        # Create a queue for capturing logs
+        log_queue = queue.Queue()
+        
+        # Create streaming log handler
+        stream_handler = StreamingLogHandler(log_queue)
+        stream_handler.setLevel(logging.INFO)
+        
+        # Add handler to enhanced_complex_mode logger
+        enhanced_logger = logging.getLogger('enhanced_complex_mode')
+        enhanced_logger.addHandler(stream_handler)
+        
+        try:
+            # Get enhanced mode options from request
+            options = request_data.get('options', {})
+            session_id = request_data.get('session_id')
+            
+            enhanced_options = {
+                'enable_web_search': options.get('enable_web_search', True),
+            }
+            
+            # Start the task in a separate thread
+            import threading
+            result_container = {}
+            
+            def run_task():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    result = loop.run_until_complete(
+                        enhanced_complex_manager.process_complex_task(prompt, session_id, enhanced_options)
+                    )
+                    result_container['result'] = result
+                    loop.close()
+                except Exception as e:
+                    result_container['error'] = str(e)
+                finally:
+                    # Signal completion
+                    log_queue.put({'type': 'task_complete'})
+            
+            task_thread = threading.Thread(target=run_task)
+            task_thread.start()
+            
+            # Stream logs as they come in
+            while True:
+                try:
+                    # Get log entry with timeout
+                    log_entry = log_queue.get(timeout=0.5)
+                    
+                    if log_entry.get('type') == 'task_complete':
+                        # Task is complete, send final result
+                        if 'result' in result_container:
+                            final_result = result_container['result']
+                            yield f"data: {json.dumps({'type': 'complete', 'result': final_result})}\n\n"
+                        elif 'error' in result_container:
+                            yield f"data: {json.dumps({'type': 'error', 'error': result_container['error']})}\n\n"
+                        break
+                    else:
+                        # Send log entry
+                        yield f"data: {json.dumps({'type': 'backend_log', 'log': log_entry})}\n\n"
+                        
+                except queue.Empty:
+                    # Check if thread is still alive
+                    if not task_thread.is_alive():
+                        break
+                    continue
+                    
+        finally:
+            # Clean up - remove the handler
+            enhanced_logger.removeHandler(stream_handler)
+    
+    return Response(
+        generate_stream(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
+        }
+    )
+
+@app.route('/enhanced_research', methods=['POST'])
+def enhanced_research_agent():
+    """Enhanced research with multi-source analysis and fact-checking"""
+    data = request.get_json()
+    query = data.get('query', '').strip()
+    research_type = data.get('type', 'comprehensive')  # comprehensive, fact_check, comparative
+    
+    if not query:
+        return jsonify({'error': 'Query cannot be empty'}), 400
+    
+    # Check for missing Google API key
+    if globals().get('missing_google_key', False):
+        return jsonify({
+            'error': 'Google API key not configured',
+            'message': 'Please set GOOGLE_API_KEY in your .env file to use enhanced research functionality.'
+        }), 400
+    
+    try:
+        if enhanced_research_manager:
+            app.logger.info(f"🔍 Processing enhanced research: {query}")
+            
+            def process_research():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
+                    if research_type == 'comprehensive':
+                        result = loop.run_until_complete(
+                            enhanced_research_manager.conduct_comprehensive_research(query)
+                        )
+                    elif research_type == 'fact_check':
+                        result = loop.run_until_complete(
+                            enhanced_research_manager.fact_check_claim(query)
+                        )
+                    elif research_type == 'comparative':
+                        topics = data.get('topics', [query])
+                        result = loop.run_until_complete(
+                            enhanced_research_manager.comparative_analysis(topics)
+                        )
+                    else:
+                        result = loop.run_until_complete(
+                            enhanced_research_manager.conduct_comprehensive_research(query)
+                        )
+                    
+                    loop.close()
+                    return result
+                except Exception as e:
+                    app.logger.error(f"Enhanced research failed: {e}")
+                    return {'error': str(e)}
+            
+            # Run in thread pool
+            research_result = executor.submit(process_research).result(timeout=180)  # 3 minute timeout
+            
+            return jsonify({
+                'query': query,
+                'type': research_type,
+                'result': research_result if not isinstance(research_result, dict) or 'error' not in research_result else None,
+                'error': research_result.get('error') if isinstance(research_result, dict) and 'error' in research_result else None,
+                'enhanced_mode': True
+            })
+        
+        else:
+            return jsonify({
+                'error': 'Enhanced research not available',
+                'message': 'Enhanced research manager not initialized'
+            }), 500
+            
+    except Exception as e:
+        app.logger.error(f"Enhanced research failed: {e}", exc_info=True)
+        return jsonify({'error': f'Failed to process enhanced research: {str(e)}'}), 500
+
+
+@app.route('/complex_session/<session_id>', methods=['GET'])
+def get_complex_session(session_id):
+    """Get complex mode session details"""
+    if enhanced_complex_manager:
+        session = enhanced_complex_manager.get_session(session_id)
+        if session:
+            return jsonify(session)
+        else:
+            return jsonify({'error': 'Session not found'}), 404
+    else:
+        return jsonify({'error': 'Enhanced complex mode not available'}), 500
+
+@app.route('/complex_sessions', methods=['GET'])
+def list_complex_sessions():
+    """List all complex mode sessions"""
+    if enhanced_complex_manager:
+        sessions = enhanced_complex_manager.list_sessions()
+        return jsonify({'sessions': sessions})
+    else:
+        return jsonify({'error': 'Enhanced complex mode not available'}), 500
 
 
 
@@ -1031,7 +1271,7 @@ def tts():
     text = data.get('text', '').strip()
     if not text: return jsonify({'error': 'No text provided'}), 400
 
-    voice_id = "21m00Tcm4TlvDq8ikWAM" # Rachel
+    voice_id = "dMyQqiVXTU80dDl2eNK8" #Eryn
     tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {
         "Accept": "audio/mpeg",

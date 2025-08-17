@@ -1,24 +1,79 @@
 # Environment variables
 .env
+.env.local
+.env.production
 
-# Python virtual environment
-venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Database file
-tasks.db
+# Virtual environment
+venv/
+env/
+ENV/
 
-# Log files
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
 server.log
 
-# Task data and generated GIFs
+# Database
+*.db
+*.sqlite
+*.sqlite3
+tasks.db
+
+# Task data and temporary files
 task_data/
 task_gifs/
+screenshots/
+temp/
 
-# IDE specific files
-.claude/
-.vscode/
-
-# User-specific data
+# Browser data
+**/User Data/
+browser_data/
 C:/Users/
+C:\\*
+*\\Users\\*
+
+# Audio files
+*.wav
+*.mp3
+*.mp4
+
+# Large files
+*.zip
+*.tar.gz
+*.rar

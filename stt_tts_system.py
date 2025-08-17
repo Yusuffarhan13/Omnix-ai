@@ -87,7 +87,7 @@ class ElevenLabsTTS:
     
     def __init__(self, api_key: str, voice_id: str = None):
         self.api_key = api_key
-        self.voice_id = voice_id or "21m00Tcm4TlvDq8ikWAM"  # Rachel voice
+        self.voice_id = voice_id or "dMyQqiVXTU80dDl2eNK8"  #Eryn voice
         self.logger = logging.getLogger(__name__)
         
         if not api_key:

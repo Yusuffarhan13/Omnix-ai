@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Omnix AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Crimson+Text:wght@400;600&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.opendyslexic.org/css/opendyslexic-regular.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -275,10 +278,13 @@
         }
 
         .welcome-title {
-            font-size: 1.8rem;
-            font-weight: 400;
-            color: #1a1a1a;
-            margin-bottom: 0.5rem;
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #2c2c2c;
+            margin-bottom: 1rem;
+            text-align: center;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
         }
 
         .welcome-subtitle {
@@ -326,7 +332,6 @@
             min-height: 60px;
             padding: 8px 12px;
             margin-bottom: 45px;
-            vertical-align: top;
             text-align: left;
             display: block;
             overflow-y: auto;
@@ -453,7 +458,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 2rem 0;
-            padding-bottom: 8rem;
+            padding-bottom: 12rem;
             width: 100%;
             margin: 0;
             max-width: none;
@@ -486,6 +491,468 @@
         .chat-messages::-webkit-scrollbar-thumb:hover {
             background: rgba(193, 123, 71, 0.5);
             background-clip: content-box;
+        }
+
+        /* Omnix Maxima Indicator */
+        .omnix-maxima-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(128, 128, 128, 0.2);
+            color: rgba(128, 128, 128, 0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(128, 128, 128, 0.1);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(128, 128, 128, 0.2);
+        }
+
+        .omnix-maxima-indicator.active {
+            display: flex;
+        }
+
+        .omnix-maxima-indicator:hover {
+            background: rgba(128, 128, 128, 0.3);
+            color: rgba(128, 128, 128, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(128, 128, 128, 0.15);
+        }
+
+        .omnix-maxima-icon {
+            font-size: 1rem;
+        }
+
+        /* Code Execution Container */
+        .code-execution-container {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .code-execution-header {
+            background: #343a40;
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .code-execution-content {
+            padding: 1rem;
+        }
+
+        .code-execution-output {
+            background: #212529;
+            color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        .thinking-process {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-left: 4px solid #f39c12;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .thinking-process-header {
+            font-weight: 600;
+            color: #8b4513;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .thinking-process-content {
+            color: #7a5e00;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        .run-code-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .run-code-btn:hover {
+            background: #218838;
+        }
+
+        /* Thinking Canvas */
+        .thinking-canvas {
+            background: transparent;
+            border: 1px solid #c17b47;
+            border-radius: 8px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .thinking-canvas-header {
+            background: transparent;
+            color: #1a1a1a;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s ease;
+        }
+
+        .thinking-canvas-header:hover {
+            background: #5a6268;
+        }
+
+        .thinking-canvas-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .live-indicator {
+            font-size: 0.7rem;
+            background: #dc3545;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            animation: pulse-live 2s infinite;
+        }
+
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .thinking-canvas-toggle {
+            font-size: 0.8rem;
+            transition: transform 0.3s ease;
+        }
+
+        .thinking-canvas-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .thinking-canvas-content {
+            max-height: 0;
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+        }
+
+        .thinking-canvas-content.expanded {
+            max-height: 500px;
+        }
+
+        .thinking-canvas-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .thinking-canvas-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .thinking-canvas-content::-webkit-scrollbar-thumb {
+            background: rgba(193, 123, 71, 0.5);
+            border-radius: 4px;
+        }
+
+        .thinking-canvas-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(193, 123, 71, 0.8);
+        }
+
+        .thinking-canvas-inner {
+            padding: 1rem;
+        }
+
+        .thinking-step {
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid #6c757d;
+        }
+
+        .thinking-step-header {
+            font-weight: 500;
+            color: #495057;
+            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
+        }
+
+        .thinking-step-content {
+            color: #6c757d;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        /* Backend Log Styles */
+        .backend-log {
+            border-left-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .backend-log.log-thinking {
+            border-left-color: #6f42c1;
+            background: #faf8ff;
+        }
+
+        .backend-log.log-success {
+            border-left-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .backend-log.log-planning {
+            border-left-color: #ffc107;
+            background: #fffdf0;
+        }
+
+        .backend-log.log-reasoning {
+            border-left-color: #17a2b8;
+            background: #f0fbff;
+        }
+
+        .backend-log.log-error {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .backend-log.log-warning {
+            border-left-color: #fd7e14;
+            background: #fff8f0;
+        }
+
+        .log-icon {
+            font-size: 1rem;
+            margin-right: 0.5rem;
+        }
+
+        .log-message {
+            flex: 1;
+            font-weight: 500;
+        }
+
+        .log-timestamp {
+            font-size: 0.7rem;
+            color: #6c757d;
+            opacity: 0.8;
+            font-family: 'Courier New', monospace;
+        }
+
+        .thinking-step-header {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .log-details {
+            font-size: 0.7rem;
+            color: #868e96;
+            margin-top: 0.25rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Live log animation */
+        .backend-log {
+            animation: logAppear 0.3s ease-in;
+        }
+
+        @keyframes logAppear {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .live-response {
+            font-family: inherit;
+            line-height: 1.6;
+        }
+
+        .detailed-thinking-container {
+            margin-top: 1rem;
+            border-top: 1px solid #e9ecef;
+            padding-top: 1rem;
+        }
+
+        .detailed-thinking-header {
+            cursor: pointer;
+            font-weight: 500;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+
+        .detailed-thinking-header:hover {
+            background: #f8f9fa;
+        }
+
+        .detailed-thinking-toggle {
+            transition: transform 0.3s ease;
+        }
+
+        .detailed-thinking-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .detailed-thinking-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding-left: 1rem;
+            border-left: 2px solid #e9ecef;
+            margin-left: 0.5rem;
+        }
+
+        .detailed-thinking-content.expanded {
+            max-height: 1000px; /* Adjust as needed */
+            padding-top: 0.5rem;
+        }
+
+        .detail-section {
+            margin-bottom: 1rem;
+        }
+
+        .detail-section-title {
+            font-weight: 600;
+            color: #343a40;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-section-content {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+
+        .detailed-thinking-container {
+            margin-top: 1rem;
+            border-top: 1px solid #e9ecef;
+            padding-top: 1rem;
+        }
+
+        .detailed-thinking-header {
+            cursor: pointer;
+            font-weight: 500;
+            color: #495057;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+        }
+
+        .detailed-thinking-header:hover {
+            background: #f8f9fa;
+        }
+
+        .detailed-thinking-toggle {
+            transition: transform 0.3s ease;
+        }
+
+        .detailed-thinking-toggle.expanded {
+            transform: rotate(180deg);
+        }
+
+        .detailed-thinking-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding-left: 1rem;
+            border-left: 2px solid #e9ecef;
+            margin-left: 0.5rem;
+        }
+
+        .detailed-thinking-content.expanded {
+            max-height: 1000px; /* Adjust as needed */
+            padding-top: 0.5rem;
+        }
+
+        .detail-section {
+            margin-bottom: 1rem;
+        }
+
+        .detail-section-title {
+            font-weight: 600;
+            color: #343a40;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-section-content {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 1.2em;
+            background: #c17b47;
+            animation: blink 1s infinite;
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
         }
 
         /* Force scrollbar to screen edge by removing margin/padding on right */
@@ -665,6 +1132,96 @@
             border-color: #c17b47;
             color: #c17b47;
         }
+
+        .model-selector-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .model-selector-btn {
+            background: transparent !important;
+            color: #c17b47 !important;
+            border: 1px solid #c17b47 !important;
+            width: auto !important;
+            padding: 0 8px 0 12px !important;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .model-selector-btn:hover {
+            background: rgba(193, 123, 71, 0.1) !important;
+            border-color: #c17b47 !important;
+            color: #c17b47 !important;
+            transform: translateY(-1px) !important;
+        }
+
+        .model-selector-btn i {
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        .model-selector-btn.open i {
+            transform: rotate(180deg);
+        }
+
+        .model-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            min-width: 160px;
+            display: none;
+            margin-top: 4px;
+        }
+
+        .model-dropdown.show {
+            display: block;
+        }
+
+        .model-option {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s ease;
+        }
+
+        .model-option:last-child {
+            border-bottom: none;
+        }
+
+        .model-option:hover {
+            background: #f8f8f8;
+        }
+
+        .model-option.selected {
+            background: #c17b47;
+            color: white;
+        }
+
+        .model-name {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .model-desc {
+            display: block;
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .model-option.selected .model-desc {
+            opacity: 0.9;
+        }
+
 
         .chat-send-button {
             background: #c17b47;
@@ -995,6 +1552,1008 @@
             background: #a66939;
         }
 
+        /* Settings Modal Styles */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .settings-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-modal-content {
+            background: var(--modal-bg, #ffffff);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 80vh;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Dark theme support for settings modal - Single Color */
+        body.theme-dark .settings-modal {
+            background: rgba(45, 45, 45, 0.95) !important;
+        }
+
+        body.theme-dark .settings-modal-content {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .settings-header {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px 12px 0 0 !important;
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .settings-header h2 {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .settings-close-btn {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+            border-radius: 6px !important;
+        }
+
+        body.theme-dark .settings-close-btn:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .settings-sidebar {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            border-radius: 0 0 0 12px !important;
+        }
+
+        body.theme-dark .settings-content {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 0 0 12px 0 !important;
+        }
+
+        body.theme-dark .settings-nav-item {
+            color: #ffffff !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.03) !important;
+            background: #2d2d2d !important;
+        }
+
+        body.theme-dark .settings-nav-item:hover {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.08) !important;
+        }
+
+        body.theme-dark .settings-nav-item.active {
+            background: #c17b47 !important;
+            color: #ffffff !important;
+            border: 1px solid #c17b47 !important;
+            box-shadow: 0 0 12px rgba(193, 123, 71, 0.3) !important;
+        }
+
+        body.theme-dark .settings-input,
+        body.theme-dark .settings-textarea,
+        body.theme-dark .settings-select {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .settings-input:focus,
+        body.theme-dark .settings-textarea:focus,
+        body.theme-dark .settings-select:focus {
+            border: 1px solid #c17b47 !important;
+            box-shadow: 0 0 12px rgba(193, 123, 71, 0.2) !important;
+        }
+
+        body.theme-dark .font-preview {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .theme-option {
+            border-color: #2d2d2d !important;
+            border-radius: 8px !important;
+            background: #2d2d2d !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .theme-option:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .theme-option.active {
+            border: 1px solid #c17b47 !important;
+            box-shadow: 0 0 12px rgba(193, 123, 71, 0.3) !important;
+        }
+
+        body.theme-dark .voice-option {
+            border-color: #2d2d2d !important;
+            background: #2d2d2d !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .voice-option:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .voice-option.active {
+            background: #c17b47 !important;
+            border-radius: 8px !important;
+            border: 1px solid #c17b47 !important;
+            box-shadow: 0 0 12px rgba(193, 123, 71, 0.3) !important;
+        }
+
+        body.theme-dark .suggestion-btn {
+            background: #2d2d2d;
+            border-color: #2d2d2d;
+            color: #ffffff;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .suggestion-btn:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* Settings section styling */
+        body.theme-dark .settings-section h3 {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .settings-label,
+        body.theme-dark .settings-sublabel {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .settings-group {
+            border-radius: 8px !important;
+        }
+
+        /* Creativity slider styling */
+        body.theme-dark .creativity-slider {
+            background: #2d2d2d !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .creativity-slider::-webkit-slider-thumb {
+            background: #c17b47 !important;
+            box-shadow: 0 0 8px rgba(193, 123, 71, 0.3) !important;
+        }
+
+        body.theme-dark .slider-labels span {
+            color: #ffffff !important;
+        }
+
+        /* Model toggles */
+        body.theme-dark .model-toggle label {
+            color: #ffffff !important;
+        }
+
+        /* Comprehensive Dark Theme Support - Single Color (#2d2d2d) */
+        body.theme-dark {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+        }
+
+        /* Force dark theme on main containers with rounded corners */
+        body.theme-dark .main-content {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .chat-interface {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .chat-input-area {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark #chat-input,
+        body.theme-dark #welcome-input {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark #chat-input::placeholder,
+        body.theme-dark #welcome-input::placeholder {
+            color: #999999 !important;
+        }
+
+        body.theme-dark .message {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .user-message {
+            background: #c17b47 !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .ai-message {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .input-control-btn,
+        body.theme-dark .welcome-control-btn {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .input-control-btn:hover,
+        body.theme-dark .welcome-control-btn:hover {
+            background: #2d2d2d !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .model-dropdown,
+        body.theme-dark .plus-menu,
+        body.theme-dark .slider-popup {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .model-option:hover,
+        body.theme-dark .plus-menu-item:hover,
+        body.theme-dark .dropdown-option:hover {
+            background: #2d2d2d !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.08) !important;
+        }
+
+        body.theme-dark .welcome-title,
+        body.theme-dark .welcome-header h1 {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .mode-btn {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .mode-btn:hover {
+            background: #2d2d2d !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .sidebar-title,
+        body.theme-dark .chat-history-title {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .new-chat-btn {
+            background: #c17b47 !important;
+            color: #ffffff !important;
+            border-radius: 8px !important;
+        }
+
+        body.theme-dark .mini-icon {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .mini-icon:hover {
+            background: #2d2d2d !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        body.theme-dark .omnix-maxima-indicator {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 8px !important;
+        }
+
+        body.theme-dark .loading-message {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .toggle-item-label {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .dropdown-title {
+            color: #ffffff !important;
+        }
+
+        /* Fix Chat Area Dark Mode - More Specific Selectors with Rounded Corners */
+        body.theme-dark .chat-messages {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .welcome-screen {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .input-wrapper {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            opacity: 1 !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .welcome-input-container {
+            background: #2d2d2d !important;
+            opacity: 1 !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .welcome-input-container .input-wrapper {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            opacity: 1 !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .chat-input-area {
+            background: #2d2d2d !important;
+            border-color: #2d2d2d !important;
+            opacity: 1 !important;
+            border-radius: 12px !important;
+        }
+
+        /* Mode buttons text fix */
+        body.theme-dark .mode-btn span {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .mode-btn i {
+            color: #ffffff !important;
+        }
+
+        /* Chat area text fix - Remove opacity issues */
+        body.theme-dark .chat-messages * {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        body.theme-dark .welcome-screen * {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        body.theme-dark .welcome-screen .omnix-icon {
+            color: #c17b47 !important;
+            opacity: 1 !important;
+        }
+
+        /* Ensure all text elements have full opacity */
+        body.theme-dark h1, 
+        body.theme-dark h2, 
+        body.theme-dark h3, 
+        body.theme-dark p, 
+        body.theme-dark span, 
+        body.theme-dark div {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        /* Input area backgrounds */
+        body.theme-dark .chat-input-area {
+            background: #2d2d2d !important;
+            border-color: #404040 !important;
+        }
+
+        body.theme-dark .chat-input-area .input-wrapper {
+            background: #2d2d2d !important;
+            border-color: #404040 !important;
+        }
+
+        /* Ensure all text in chat interface is white with full opacity */
+        body.theme-dark .chat-interface,
+        body.theme-dark .chat-interface * {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        body.theme-dark .welcome-screen,
+        body.theme-dark .welcome-screen * {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        /* Chat interface background consistency */
+        body.theme-dark .chat-interface {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        /* Keep brand color for specific elements */
+        body.theme-dark .welcome-screen .omnix-icon,
+        body.theme-dark .user-message,
+        body.theme-dark .new-chat-btn {
+            color: #ffffff !important;
+            opacity: 1 !important;
+        }
+
+        /* Ultra-specific targeting for problematic elements with rounded corners */
+        body.theme-dark div,
+        body.theme-dark section,
+        body.theme-dark main,
+        body.theme-dark article {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 8px !important;
+        }
+
+        /* Target every possible container with consistent styling */
+        body.theme-dark .chat-messages,
+        body.theme-dark .chat-interface,
+        body.theme-dark .welcome-screen,
+        body.theme-dark .main-content,
+        body.theme-dark #chat-interface,
+        body.theme-dark #welcome-screen,
+        body.theme-dark #main-content {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            background-color: #2d2d2d !important;
+            border-radius: 12px !important;
+        }
+
+        /* Input areas specific targeting - single color */
+        body.theme-dark .chat-input-area,
+        body.theme-dark .input-wrapper,
+        body.theme-dark .welcome-input-container,
+        body.theme-dark .input-container {
+            background: #2d2d2d !important;
+            background-color: #2d2d2d !important;
+            border: 1px solid #2d2d2d !important;
+            border-radius: 12px !important;
+        }
+
+        /* Live Mode Voice Sphere Dark Theme - Single Color */
+        body.theme-dark .live-conversation-overlay {
+            background: rgba(45, 45, 45, 0.95) !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .live-conversation-container {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .voice-sphere {
+            background: #2d2d2d !important;
+            border: 2px solid #2d2d2d !important;
+            border-radius: 50% !important;
+        }
+
+        /* Fix shifting dots visibility in dark mode */
+        body.theme-dark .shifting-dots {
+            opacity: 1 !important;
+        }
+
+        /* Voice dots - make them more visible in dark mode */
+        body.theme-dark .voice-dot {
+            background: #ffffff !important;
+            opacity: 0.8 !important;
+        }
+
+        body.theme-dark .voice-dot.active {
+            background: #64C8FF !important;
+            opacity: 1 !important;
+        }
+
+        body.theme-dark .voice-dot.ai-speaking {
+            background: #FF9664 !important;
+            opacity: 1 !important;
+        }
+
+        body.theme-dark .voice-dot.scattered {
+            background: #ffffff !important;
+            opacity: 0.9 !important;
+        }
+
+        /* If shifting dots use individual dot elements */
+        body.theme-dark .shifting-dots .dot,
+        body.theme-dark .shifting-dots span {
+            background: #ffffff !important;
+            opacity: 0.8 !important;
+        }
+
+        /* Live mode controls - Single Color */
+        body.theme-dark .live-mic-btn {
+            background: #c17b47 !important;
+            color: #ffffff !important;
+            border-color: #c17b47 !important;
+            border-radius: 50% !important;
+        }
+
+        body.theme-dark .live-transcription {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 12px !important;
+        }
+
+        body.theme-dark .transcription-text {
+            color: #ffffff !important;
+        }
+
+        body.theme-dark .sources-btn {
+            background: #2d2d2d !important;
+            color: #ffffff !important;
+            border-color: #2d2d2d !important;
+            border-radius: 8px !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .sources-btn:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* General button backlight for any missed buttons */
+        body.theme-dark button {
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 0.03) !important;
+        }
+
+        body.theme-dark button:hover {
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.08) !important;
+        }
+
+        /* Voice preview buttons */
+        body.theme-dark .voice-preview-btn {
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.05) !important;
+        }
+
+        body.theme-dark .voice-preview-btn:hover {
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.1) !important;
+        }
+
+        .settings-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fafafa;
+        }
+
+        .settings-header h2 {
+            margin: 0;
+            color: #1a1a1a;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .settings-close-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #666;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .settings-close-btn:hover {
+            background: #f0f0f0;
+            color: #1a1a1a;
+        }
+
+        .settings-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .settings-sidebar {
+            width: 250px;
+            background: #f8f9fa;
+            border-right: 1px solid #e5e5e5;
+            padding: 1rem 0;
+            overflow-y: auto;
+        }
+
+        .settings-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .settings-nav-item:hover {
+            background: #f0f0f0;
+            color: #1a1a1a;
+        }
+
+        .settings-nav-item.active {
+            background: #c17b47;
+            color: white;
+        }
+
+        .settings-nav-item i {
+            width: 16px;
+            text-align: center;
+        }
+
+        .settings-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .settings-section {
+            display: none;
+        }
+
+        .settings-section.active {
+            display: block;
+        }
+
+        .settings-section h3 {
+            margin: 0 0 1.5rem 0;
+            color: #1a1a1a;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .settings-group {
+            margin-bottom: 2rem;
+        }
+
+        .settings-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .settings-sublabel {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .settings-input, .settings-textarea, .settings-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .settings-input:focus, .settings-textarea:focus, .settings-select:focus {
+            outline: none;
+            border-color: #c17b47;
+        }
+
+        .settings-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        /* Font Selection */
+        .font-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .font-preview {
+            padding: 1rem;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            background: #f8f9fa;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Theme Selection */
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .theme-option {
+            text-align: center;
+            cursor: pointer;
+            padding: 1rem;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .theme-option:hover {
+            border-color: #c17b47;
+        }
+
+        .theme-option.active {
+            border-color: #c17b47;
+            background: #f8f4f0;
+        }
+
+        .theme-preview {
+            width: 100%;
+            height: 60px;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .light-preview {
+            background: #ffffff;
+            border: 1px solid #e5e5e5;
+        }
+
+        .dark-preview {
+            background: #1a1a1a;
+            border: 1px solid #333;
+        }
+
+        .system-preview {
+            background: linear-gradient(45deg, #ffffff 50%, #1a1a1a 50%);
+            border: 1px solid #e5e5e5;
+        }
+
+        .theme-preview-header {
+            height: 20px;
+            background: rgba(193, 123, 71, 0.2);
+            border-radius: 4px 4px 0 0;
+        }
+
+        .theme-preview-content {
+            height: 40px;
+            background: rgba(193, 123, 71, 0.1);
+            border-radius: 0 0 4px 4px;
+        }
+
+        /* Checkbox Row */
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .settings-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #c17b47;
+        }
+
+        .checkbox-row .settings-label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        /* Creativity Slider */
+        .creativity-slider-container {
+            margin-bottom: 1rem;
+        }
+
+        .creativity-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e5e5e5;
+            outline: none;
+            -webkit-appearance: none;
+            margin-bottom: 0.5rem;
+        }
+
+        .creativity-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #c17b47;
+            cursor: pointer;
+        }
+
+        .creativity-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #c17b47;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        /* Model Toggles */
+        .model-toggles {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .model-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .model-toggle input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #c17b47;
+        }
+
+        /* Voice Selection */
+        .voice-selection {
+            margin-bottom: 1.5rem;
+        }
+
+        .voice-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .voice-option {
+            padding: 1rem;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .voice-option:hover {
+            border-color: #c17b47;
+        }
+
+        .voice-option.active {
+            border-color: #c17b47;
+            background: #f8f4f0;
+        }
+
+        .voice-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .voice-name {
+            font-weight: 500;
+        }
+
+        .voice-preview-btn {
+            background: #c17b47;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .voice-preview-btn:hover {
+            background: #a66939;
+            transform: scale(1.1);
+        }
+
+        /* Prompt Suggestions */
+        .prompt-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .suggestion-btn {
+            padding: 0.5rem 1rem;
+            background: #f8f9fa;
+            border: 1px solid #e5e5e5;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-btn:hover {
+            background: #c17b47;
+            color: white;
+            border-color: #c17b47;
+        }
+
         /* Loading indicator */
         .loading-message {
             display: none;
@@ -1036,7 +2595,7 @@
             }
             
             .welcome-title {
-                font-size: 1.5rem;
+                font-size: 1.8rem;
             }
             
             .chat-messages {
@@ -1536,6 +3095,25 @@
             transform: scale(1.02);
         }
 
+        .voice-sphere.ai-speaking {
+            animation: sphereReaction 1.5s ease-in-out infinite;
+        }
+
+        .voice-sphere.user-speaking {
+            animation: userSpeakingPulse 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes userSpeakingPulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(100, 200, 255, 0.3);
+            }
+            100% {
+                transform: scale(1.03);
+                box-shadow: 0 0 25px rgba(100, 200, 255, 0.6);
+            }
+        }
+
         .shifting-dots {
             position: absolute;
             width: 100%;
@@ -1567,6 +3145,11 @@
         .voice-dot.ai-speaking {
             background: #FF9664;
             opacity: 1;
+            animation: aiSpeakingPulse 0.8s ease-in-out infinite alternate;
+        }
+
+        .voice-dot.wave-animation {
+            animation: dotWave 1.2s ease-in-out infinite, aiSpeakingPulse 0.8s ease-in-out infinite alternate;
         }
 
         @keyframes scatter {
@@ -1579,6 +3162,43 @@
             }
             100% {
                 transform: translate(0, 0) scale(1);
+            }
+        }
+
+        @keyframes aiSpeakingPulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+                box-shadow: 0 0 8px rgba(255, 150, 100, 0.4);
+            }
+            100% {
+                transform: scale(1.3);
+                opacity: 1;
+                box-shadow: 0 0 15px rgba(255, 150, 100, 0.8);
+            }
+        }
+
+        @keyframes sphereReaction {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(255, 150, 100, 0.2);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 30px rgba(255, 150, 100, 0.4);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(255, 150, 100, 0.2);
+            }
+        }
+
+        @keyframes dotWave {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+            }
+            50% {
+                transform: translateY(-5px) scale(1.2);
             }
         }
 
@@ -1936,8 +3556,24 @@
                     </button>
                 </div>
                 
-                <!-- Right Controls (Send) -->
+                <!-- Right Controls (Model Selector, Send) -->
                 <div class="welcome-right-controls">
+                    <div class="model-selector-wrapper">
+                        <button class="welcome-control-btn model-selector-btn" id="welcome-model-selector" title="Select AI Model">
+                            <span id="welcome-selected-model">Omnix Flash</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="model-dropdown" id="welcome-model-dropdown">
+                            <div class="model-option" data-model="flash">
+                                <span class="model-name">Omnix Flash</span>
+                                <span class="model-desc">Fast responses</span>
+                            </div>
+                            <div class="model-option" data-model="maxima">
+                                <span class="model-name">Omnix Maxima</span>
+                                <span class="model-desc">Complex tasks</span>
+                            </div>
+                        </div>
+                    </div>
                     <button class="welcome-control-btn send-button" id="welcome-send-button" title="Send message">
                         <i class="fas fa-arrow-up"></i>
                     </button>
@@ -1969,7 +3605,7 @@
                     <div class="toggle-item">
                         <span class="toggle-item-label">Web Search</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-web-search-toggle">
+                            <input type="checkbox" id="welcome-web-search-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -1985,7 +3621,7 @@
                     <div class="toggle-item">
                         <span class="toggle-item-label">Extended Reasoning</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-extended-reasoning-toggle">
+                            <input type="checkbox" id="welcome-extended-reasoning-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -1993,7 +3629,7 @@
                     <div class="toggle-item">
                         <span class="toggle-item-label">Sequential Thinking</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-sequential-thinking-toggle">
+                            <input type="checkbox" id="welcome-sequential-thinking-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -2053,10 +3689,6 @@
                 <i class="fas fa-search"></i>
                 <span>Research</span>
             </button>
-            <button class="mode-btn" data-mode="complex" title="Complex tasks, coding, and problem solving">
-                <i class="fas fa-code"></i>
-                <span>Complex</span>
-            </button>
             <button class="mode-btn" data-mode="browser" title="Interactive browser automation and web tasks">
                 <i class="fas fa-globe"></i>
                 <span>Browser</span>
@@ -2070,6 +3702,11 @@
 
     <!-- Chat Interface -->
     <div class="chat-interface" id="chat-interface">
+        <!-- Omnix Maxima Indicator -->
+        <div class="omnix-maxima-indicator" id="omnix-maxima-indicator">
+            <span>Omnix Maxima</span>
+        </div>
+        
         <div class="chat-messages" id="chat-messages">
             <!-- Messages will be added here -->
         </div>
@@ -2138,8 +3775,24 @@
                     </button>
                 </div>
 
-                <!-- Right Controls (Send) -->
+                <!-- Right Controls (Model Selector, Send) -->
                 <div class="input-right-controls">
+                    <div class="model-selector-wrapper">
+                        <button class="input-control-btn model-selector-btn" id="chat-model-selector" title="Select AI Model">
+                            <span id="chat-selected-model">Omnix Flash</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="model-dropdown" id="chat-model-dropdown">
+                            <div class="model-option" data-model="flash">
+                                <span class="model-name">Omnix Flash</span>
+                                <span class="model-desc">Fast responses</span>
+                            </div>
+                            <div class="model-option" data-model="maxima">
+                                <span class="model-name">Omnix Maxima</span>
+                                <span class="model-desc">Complex tasks</span>
+                            </div>
+                        </div>
+                    </div>
                     <button class="input-control-btn chat-send-button" id="chat-send-button" title="Send message">
                         <i class="fas fa-arrow-up"></i>
                     </button>
@@ -2151,7 +3804,7 @@
                     <div class="toggle-item">
                         <span class="toggle-item-label">Web Search</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="web-search-toggle">
+                            <input type="checkbox" id="web-search-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -2167,7 +3820,7 @@
                     <div class="toggle-item">
                         <span class="toggle-item-label">Extended Reasoning</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="extended-reasoning-toggle">
+                            <input type="checkbox" id="extended-reasoning-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -2175,7 +3828,7 @@
                     <div class="toggle-item">
                         <span class="toggle-item-label">Sequential Thinking</span>
                         <label class="toggle-switch">
-                            <input type="checkbox" id="sequential-thinking-toggle">
+                            <input type="checkbox" id="sequential-thinking-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -2238,6 +3891,7 @@
     </div>
     </div>
 
+
     <!-- MCP Connection Dialog -->
     <div class="mcp-dialog" id="mcp-dialog">
         <div class="mcp-dialog-content">
@@ -2278,6 +3932,277 @@
             <div class="mcp-dialog-actions">
                 <button class="mcp-btn mcp-btn-cancel" id="mcp-cancel-btn">Cancel</button>
                 <button class="mcp-btn mcp-btn-connect" id="mcp-connect-btn">Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settings-modal">
+        <div class="settings-modal-content">
+            <!-- Settings Header -->
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button class="settings-close-btn" id="settings-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Settings Body -->
+            <div class="settings-body">
+                <!-- Settings Sidebar -->
+                <div class="settings-sidebar">
+                    <div class="settings-nav-item active" data-section="appearance">
+                        <i class="fas fa-palette"></i>
+                        <span>Appearance</span>
+                    </div>
+                    <div class="settings-nav-item" data-section="personalize">
+                        <i class="fas fa-user-cog"></i>
+                        <span>Personalize</span>
+                    </div>
+                    <div class="settings-nav-item" data-section="connectors">
+                        <i class="fas fa-plug"></i>
+                        <span>Connectors</span>
+                    </div>
+                    <div class="settings-nav-item" data-section="browser-agent">
+                        <i class="fas fa-globe"></i>
+                        <span>Browser Agent</span>
+                    </div>
+                    <div class="settings-nav-item" data-section="privacy">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Privacy</span>
+                    </div>
+                    <div class="settings-nav-item" data-section="about">
+                        <i class="fas fa-info-circle"></i>
+                        <span>About us</span>
+                    </div>
+                    <div class="settings-nav-item" data-section="help">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Help</span>
+                    </div>
+                </div>
+                
+                <!-- Settings Content -->
+                <div class="settings-content">
+                    <!-- Appearance Section -->
+                    <div class="settings-section active" id="appearance-section">
+                        <h3>Appearance</h3>
+                        
+                        <!-- Font Selection -->
+                        <div class="settings-group">
+                            <label class="settings-label">Font Family</label>
+                            <div class="font-selector">
+                                <select class="settings-select" id="font-family-select">
+                                    <option value="Georgia, 'Times New Roman', Times, serif" selected>Georgia (Default)</option>
+                                    <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                                    <option value="'Playfair Display', serif">Playfair Display</option>
+                                    <option value="'Crimson Text', serif">Crimson Text</option>
+                                    <option value="'Libre Baskerville', serif">Libre Baskerville</option>
+                                    <option value="'OpenDyslexic', sans-serif">OpenDyslexic (Dyslexic Friendly)</option>
+                                </select>
+                                <div class="font-preview" id="font-preview">
+                                    The quick brown fox jumps over the lazy dog. 1234567890
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Theme Selection -->
+                        <div class="settings-group">
+                            <label class="settings-label">Theme</label>
+                            <div class="theme-options">
+                                <div class="theme-option active" data-theme="light">
+                                    <div class="theme-preview light-preview">
+                                        <div class="theme-preview-header"></div>
+                                        <div class="theme-preview-content"></div>
+                                    </div>
+                                    <span>Light (Default)</span>
+                                </div>
+                                <div class="theme-option" data-theme="dark">
+                                    <div class="theme-preview dark-preview">
+                                        <div class="theme-preview-header"></div>
+                                        <div class="theme-preview-content"></div>
+                                    </div>
+                                    <span>Dark</span>
+                                </div>
+                                <div class="theme-option" data-theme="system">
+                                    <div class="theme-preview system-preview">
+                                        <div class="theme-preview-header"></div>
+                                        <div class="theme-preview-content"></div>
+                                    </div>
+                                    <span>Use System</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Personalize Section -->
+                    <div class="settings-section" id="personalize-section">
+                        <h3>Personalize</h3>
+                        
+                        <!-- System Prompt -->
+                        <div class="settings-group">
+                            <label class="settings-label">Omnix AI System Prompt</label>
+                            <textarea class="settings-textarea" id="system-prompt" placeholder="Customize how Omnix AI should behave and respond..."></textarea>
+                        </div>
+                        
+                        <!-- AI Name -->
+                        <div class="settings-group">
+                            <label class="settings-label">What should we call you?</label>
+                            <input type="text" class="settings-input" id="ai-name" placeholder="Omnix AI" value="Omnix AI">
+                        </div>
+                        
+                        <!-- User Description -->
+                        <div class="settings-group">
+                            <label class="settings-label">Describe yourself</label>
+                            <textarea class="settings-textarea" id="user-description" placeholder="Tell Omnix AI about yourself to get more personalized responses..."></textarea>
+                        </div>
+                        
+                        <!-- Learning Toggle -->
+                        <div class="settings-group">
+                            <div class="checkbox-row">
+                                <input type="checkbox" id="ai-learning-toggle" class="settings-checkbox">
+                                <label for="ai-learning-toggle" class="settings-label">Let Omnix AI learn you</label>
+                            </div>
+                        </div>
+                        
+                        <!-- Creativity Slider -->
+                        <div class="settings-group">
+                            <label class="settings-label">How creative do you want Omnix AI to be?</label>
+                            <div class="creativity-slider-container">
+                                <input type="range" class="creativity-slider" id="creativity-slider" min="0" max="100" value="50">
+                                <div class="slider-labels">
+                                    <span>Conservative</span>
+                                    <span>Balanced</span>
+                                    <span>Creative</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Model Checkboxes -->
+                            <div class="model-toggles">
+                                <div class="model-toggle">
+                                    <input type="checkbox" id="live-voice-model" checked>
+                                    <label for="live-voice-model">Live Voice Model</label>
+                                </div>
+                                <div class="model-toggle">
+                                    <input type="checkbox" id="omnix-flash" checked>
+                                    <label for="omnix-flash">Omnix Flash</label>
+                                </div>
+                                <div class="model-toggle">
+                                    <input type="checkbox" id="omnix-maxima" checked>
+                                    <label for="omnix-maxima">Omnix Maxima</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Live Conversation Mode -->
+                        <div class="settings-group">
+                            <label class="settings-label">Live Conversation Mode</label>
+                            
+                            <!-- Voice Selection -->
+                            <div class="voice-selection">
+                                <label class="settings-sublabel">Choose Voice</label>
+                                <div class="voice-grid">
+                                    <div class="voice-option active" data-voice="dMyQqiVXTU80dDl2eNK8">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Eryn (Default)</span>
+                                            <button class="voice-preview-btn" data-voice-id="dMyQqiVXTU80dDl2eNK8">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="voice-option" data-voice="Hybl6rg76ZOcgqZqN5WN">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Tala</span>
+                                            <button class="voice-preview-btn" data-voice-id="Hybl6rg76ZOcgqZqN5WN">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="voice-option" data-voice="uYXf8XasLslADfZ2MB4u">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Hope</span>
+                                            <button class="voice-preview-btn" data-voice-id="uYXf8XasLslADfZ2MB4u">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="voice-option" data-voice="1t1EeRixsJrKbiF1zwM6">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Jerry</span>
+                                            <button class="voice-preview-btn" data-voice-id="1t1EeRixsJrKbiF1zwM6">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="voice-option" data-voice="ftDdhfYtmfGP0tFlBYA1">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Alisha</span>
+                                            <button class="voice-preview-btn" data-voice-id="ftDdhfYtmfGP0tFlBYA1">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="voice-option" data-voice="dXHKnmELyDS5HzlpW0VN">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Alex</span>
+                                            <button class="voice-preview-btn" data-voice-id="dXHKnmELyDS5HzlpW0VN">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="voice-option" data-voice="c6SfcYrb2t09NHXiT80T">
+                                        <div class="voice-info">
+                                            <span class="voice-name">Russell</span>
+                                            <button class="voice-preview-btn" data-voice-id="c6SfcYrb2t09NHXiT80T">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Live Mode System Prompt -->
+                            <div class="live-mode-prompt">
+                                <label class="settings-sublabel">How do you want Live mode to be?</label>
+                                <textarea class="settings-textarea" id="live-mode-prompt" placeholder="Customize how Omnix AI behaves in live conversation mode..."></textarea>
+                                
+                                <!-- Suggestions -->
+                                <div class="prompt-suggestions">
+                                    <div class="suggestion-btn" data-suggestion="personal-assistant">Personal Assistant</div>
+                                    <div class="suggestion-btn" data-suggestion="emotional-partner">Emotional Partner</div>
+                                    <div class="suggestion-btn" data-suggestion="mindfulness">Mindfulness</div>
+                                    <div class="suggestion-btn" data-suggestion="creative-companion">Creative Companion</div>
+                                    <div class="suggestion-btn" data-suggestion="study-buddy">Study Buddy</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Placeholder sections for other nav items -->
+                    <div class="settings-section" id="connectors-section">
+                        <h3>Connectors</h3>
+                        <p>Connector settings will be available soon.</p>
+                    </div>
+                    
+                    <div class="settings-section" id="browser-agent-section">
+                        <h3>Browser Agent</h3>
+                        <p>Browser agent settings will be available soon.</p>
+                    </div>
+                    
+                    <div class="settings-section" id="privacy-section">
+                        <h3>Privacy</h3>
+                        <p>Privacy settings will be available soon.</p>
+                    </div>
+                    
+                    <div class="settings-section" id="about-section">
+                        <h3>About us</h3>
+                        <p>Information about Omnix AI will be available soon.</p>
+                    </div>
+                    
+                    <div class="settings-section" id="help-section">
+                        <h3>Help</h3>
+                        <p>Help documentation will be available soon.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2340,8 +4265,10 @@
             mode: 'chat',
             style: 'auto',
             tools: {
-                extendedReasoning: false,
-                sequentialThinking: false,
+                webSearch: true,
+                researcher: false,
+                extendedReasoning: true,
+                sequentialThinking: true,
                 codeExecutor: false
             }
         };
@@ -2464,6 +4391,8 @@
             if (welcomeSendButton) {
                 welcomeSendButton.addEventListener('click', handleWelcomeMessage);
             }
+
+
             if (welcomeInput) {
                 welcomeInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -2501,6 +4430,7 @@
                 chatSendButton.addEventListener('click', handleChatMessage);
             }
 
+
             // Auto-resize chat textarea
             chatInput.addEventListener('input', () => {
                 chatInput.style.height = 'auto';
@@ -2524,7 +4454,7 @@
             // Placeholder event listeners for settings and profile (no functionality yet)
             miniSettings.addEventListener('click', (e) => {
                 e.stopPropagation(); // Prevent sidebar from opening
-                console.log('Settings clicked - functionality not implemented yet');
+                showSettingsModal();
             });
             miniProfile.addEventListener('click', (e) => {
                 e.stopPropagation(); // Prevent sidebar from opening
@@ -2830,6 +4760,16 @@
             currentMode = mode;
             showChatInterface();
             
+            // Show/hide Omnix Maxima indicator for complex mode
+            const omnixIndicator = document.getElementById('omnix-maxima-indicator');
+            if (omnixIndicator) {
+                if (mode === 'complex') {
+                    omnixIndicator.classList.add('active');
+                } else {
+                    omnixIndicator.classList.remove('active');
+                }
+            }
+            
             const modeNames = {
                 'chat': 'Chat',
                 'research': 'Research',
@@ -2894,7 +4834,24 @@
             // Add user message
             addMessage('user', message);
             
-            // Show loading
+            // Analyze prompt complexity for Omnix Maxima mode
+            if (currentMode === 'complex') {
+                const complexity = analyzePromptComplexity(message);
+                
+                if (complexity === 'simple') {
+                    // Handle simple prompts with live response
+                    await handleSimpleResponse(message);
+                    isProcessing = false;
+                    return;
+                }
+                
+                // For complex prompts, use enhanced processing
+                await handleComplexResponse(message);
+                isProcessing = false;
+                return;
+            }
+            
+            // Show loading for non-complex modes
             showLoading();
             
             try {
@@ -2904,9 +4861,6 @@
                 if (currentMode === 'research') {
                     endpoint = '/research';
                     body = { query: message };
-                } else if (currentMode === 'complex') {
-                    endpoint = '/complex_task';
-                    body = { prompt: message };
                 }
                 
                 const response = await fetch(endpoint, {
@@ -2939,6 +4893,178 @@
             isProcessing = false;
         }
 
+        async function handleSimpleResponse(message) {
+            // Create live response element
+            const responseElement = createLiveResponse();
+            
+            try {
+                // Make API call for simple response
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: message,
+                        mode: 'simple',
+                        context: 'omnix_maxima'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Type the actual response from backend
+                await typeResponse(responseElement, data.response || 'I understand. How can I help you?');
+                
+            } catch (error) {
+                // Fallback to basic response if API fails
+                console.error('Simple response error:', error);
+                await typeResponse(responseElement, `I'm here to help! What would you like to work on?`);
+            }
+        }
+
+        async function handleComplexResponse(message) {
+            // Create message with thinking canvas
+            const messageId = Date.now().toString();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar ai-avatar';
+            avatar.textContent = 'AI';
+            
+            const roleSpan = document.createElement('span');
+            roleSpan.className = 'message-role';
+            roleSpan.textContent = 'Omnix AI';
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.appendChild(avatar);
+            header.appendChild(roleSpan);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            // Add thinking canvas
+            const thinkingCanvas = createThinkingCanvas(messageId);
+            contentDiv.appendChild(thinkingCanvas);
+            
+            // Add live response area
+            const responseArea = document.createElement('div');
+            responseArea.className = 'live-response';
+            contentDiv.appendChild(responseArea);
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(contentDiv);
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+            
+            // Prepare for live response streaming
+            let liveResponseText = '';
+            const cursor = document.createElement('span');
+            cursor.className = 'typing-cursor';
+            responseArea.appendChild(cursor);
+            
+            // Make streaming API call for complex response with real backend logs
+            try {
+                const data = await makeStreamingRequest(
+                    '/complex_task',
+                    { 
+                        prompt: message,
+                        mode: 'complex',
+                        options: {
+                            enable_web_search: sliderSettings.tools.webSearch,
+                            enable_extended_reasoning: sliderSettings.tools.extendedReasoning,
+                            enable_sequential_thinking: sliderSettings.tools.sequentialThinking
+                        },
+                        thinking_steps: true,
+                        live_stream: true,
+                        include_logs: true
+                    },
+                    // Handle thinking steps from backend (if any)
+                    (step) => {
+                        addThinkingStep(messageId, step.title, step.content);
+                    },
+                    // Handle response chunks for live typing
+                    (chunk) => {
+                        liveResponseText += chunk;
+                        responseArea.insertBefore(document.createTextNode(chunk), cursor);
+                        scrollToBottom();
+                    },
+                    // Handle real backend logs from enhanced_complex_mode.py
+                    (logData) => {
+                        addLiveBackendLog(messageId, logData);
+                    }
+                );
+                
+                // Remove cursor when done
+                cursor.remove();
+
+                let finalResponseText = "Sorry, I couldn't process that. Please try again.";
+                let finalCodeBlocks = [];
+
+                // Check for the final result from the streaming response
+                if (data && data.final_result) {
+                    const finalResult = data.final_result;
+                    if (finalResult.results && finalResult.results.final_synthesis && finalResult.results.final_synthesis.synthesis_content) {
+                        finalResponseText = finalResult.results.final_synthesis.synthesis_content;
+                    }
+                    // Extract code blocks if they exist in the final result
+                    if (finalResult.results && finalResult.results.code_blocks) {
+                        finalCodeBlocks = finalResult.results.code_blocks;
+                    }
+                    // Render the detailed thinking process
+                    renderDetailedThinkingProcess(messageId, finalResult.results);
+
+                } else if (data && data.response) {
+                    // Fallback for a non-streaming JSON response
+                    finalResponseText = data.response;
+                    finalCodeBlocks = data.code_blocks || [];
+                }
+
+                // Render the final response, parsing Markdown
+                if (!liveResponseText) {
+                    responseArea.innerHTML = marked.parse(finalResponseText);
+                } else {
+                    responseArea.innerHTML = marked.parse(liveResponseText);
+                }
+
+                // Add code blocks if provided
+                if (finalCodeBlocks.length > 0) {
+                    finalCodeBlocks.forEach((codeBlock, index) => {
+                        const codeContainer = document.createElement('div');
+                        codeContainer.className = 'code-execution-container';
+                        
+                        codeContainer.innerHTML = `
+                            <div class="code-execution-header">
+                                <span><i class="fas fa-code"></i> ${codeBlock.language || 'Code'}</span>
+                                <button class="run-code-btn" onclick="executeCode('${codeBlock.language}', \`${codeBlock.code.replace(/`/g, '\\`')}\`, 'complex-${messageId}-${index}')">
+                                    <i class="fas fa-play"></i> Run
+                                </button>
+                            </div>
+                            <div class="code-execution-content">
+                                <pre><code>${codeBlock.code}</code></pre>
+                                <div class="code-execution-output" id="code-output-complex-${messageId}-${index}" style="display: none;"></div>
+                            </div>
+                        `;
+                        
+                        contentDiv.appendChild(codeContainer);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Complex response error:', error);
+                cursor.remove();
+                await typeResponse(responseArea, `I encountered an error while processing your request. Let me try a different approach: ${error.message}`);
+            }
+        }
+
+        // Backend log processing functions replaced generateThinkingSteps
+        // All thinking steps now come from real enhanced_complex_mode.py logs
+
         function showChatInterface() {
             welcomeScreen.classList.add('hidden');
             chatInterface.classList.add('active');
@@ -2964,12 +5090,63 @@
             
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = content;
+            contentDiv.innerHTML = marked.parse(content);
             
             messageDiv.appendChild(header);
             messageDiv.appendChild(contentDiv);
             
             chatMessages.appendChild(messageDiv);
+
+            // Add run buttons to code blocks
+            const codeBlocks = contentDiv.querySelectorAll('pre > code');
+            codeBlocks.forEach((codeBlock, index) => {
+                const preElement = codeBlock.parentElement;
+                const languageClass = codeBlock.className;
+                const languageMatch = languageClass.match(/language-(\w+)/);
+                const language = languageMatch ? languageMatch[1] : null;
+                
+                // User mentioned 'java', we'll treat it as 'javascript' for execution.
+                const supportedLanguages = ['javascript', 'js', 'html', 'css', 'java'];
+                let executeLanguage = language;
+                if (language === 'java') {
+                    executeLanguage = 'javascript';
+                }
+
+                if (language && supportedLanguages.includes(language)) {
+                    const messageId = 'msg-' + Date.now();
+                    const code = codeBlock.textContent;
+
+                    const codeContainer = document.createElement('div');
+                    codeContainer.className = 'code-execution-container';
+                    
+                    const codeHeader = document.createElement('div');
+                    codeHeader.className = 'code-execution-header';
+                    codeHeader.innerHTML = `
+                        <span><i class="fas fa-code"></i> ${language}</span>
+                        <button class="run-code-btn" onclick="executeCode('${executeLanguage}', \`${code.replace(/`/g, '\\`')}\`, '${messageId}-${index}')">
+                            <i class="fas fa-play"></i> Run
+                        </button>
+                    `;
+                    
+                    const codeContent = document.createElement('div');
+                    codeContent.className = 'code-execution-content';
+                    
+                    const outputDiv = document.createElement('div');
+                    outputDiv.className = 'code-execution-output';
+                    outputDiv.id = `code-output-${messageId}-${index}`;
+                    outputDiv.style.display = 'none';
+                    
+                    // Move the original <pre> element inside our new structure
+                    if (preElement.parentNode === contentDiv) {
+                        preElement.parentNode.insertBefore(codeContainer, preElement);
+                        codeContent.appendChild(preElement);
+                        codeContent.appendChild(outputDiv);
+                        codeContainer.appendChild(codeHeader);
+                        codeContainer.appendChild(codeContent);
+                    }
+                }
+            });
+
             scrollToBottom();
         }
 
@@ -2995,7 +5172,7 @@
             
             // Add summary
             const summaryP = document.createElement('p');
-            summaryP.textContent = summary;
+            summaryP.innerHTML = marked.parse(summary);
             contentDiv.appendChild(summaryP);
             
             // Add sources
@@ -3025,6 +5202,486 @@
             scrollToBottom();
         }
 
+        function addComplexMessage(response, thinking = null, codeBlocks = null, thinkingSteps = null) {
+            const messageId = Date.now().toString();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar ai-avatar';
+            avatar.textContent = 'AI';
+            
+            const roleSpan = document.createElement('span');
+            roleSpan.className = 'message-role';
+            roleSpan.textContent = 'Omnix AI';
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.appendChild(avatar);
+            header.appendChild(roleSpan);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            
+            // Add thinking canvas if thinking steps provided
+            if (thinkingSteps && thinkingSteps.length > 0) {
+                const thinkingCanvas = createThinkingCanvas(messageId);
+                contentDiv.appendChild(thinkingCanvas);
+                
+                // Add thinking steps
+                setTimeout(() => {
+                    thinkingSteps.forEach(step => {
+                        addThinkingStep(messageId, step.title, step.content);
+                    });
+                }, 100);
+            }
+            
+            // Add main response
+            const responseP = document.createElement('p');
+            responseP.innerHTML = response.replace(/\n/g, '<br>');
+            contentDiv.appendChild(responseP);
+            
+            // Add code blocks if provided
+            if (codeBlocks && codeBlocks.length > 0) {
+                codeBlocks.forEach((codeBlock, index) => {
+                    const codeContainer = document.createElement('div');
+                    codeContainer.className = 'code-execution-container';
+                    
+                    const codeHeader = document.createElement('div');
+                    codeHeader.className = 'code-execution-header';
+                    codeHeader.innerHTML = `
+                        <span><i class="fas fa-code"></i> ${codeBlock.language || 'Code'}</span>
+                        <button class="run-code-btn" onclick="executeCode('${codeBlock.language}', \`${codeBlock.code.replace(/`/g, '\\`')}\`, 'msg-${messageId}-${index}')">
+                            <i class="fas fa-play"></i> Run
+                        </button>
+                    `;
+                    
+                    const codeContent = document.createElement('div');
+                    codeContent.className = 'code-execution-content';
+                    
+                    const codeBlock_pre = document.createElement('pre');
+                    const codeElement = document.createElement('code');
+                    codeElement.textContent = codeBlock.code;
+                    codeBlock_pre.appendChild(codeElement);
+                    codeContent.appendChild(codeBlock_pre);
+                    
+                    const outputDiv = document.createElement('div');
+                    outputDiv.className = 'code-execution-output';
+                    outputDiv.id = `code-output-msg-${messageId}-${index}`;
+                    outputDiv.style.display = 'none';
+                    codeContent.appendChild(outputDiv);
+                    
+                    codeContainer.appendChild(codeHeader);
+                    codeContainer.appendChild(codeContent);
+                    contentDiv.appendChild(codeContainer);
+                });
+            }
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(contentDiv);
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function executeCode(language, code, outputId) {
+            const outputDiv = document.getElementById(`code-output-${outputId}`);
+            outputDiv.style.display = 'block';
+            outputDiv.textContent = 'Executing...';
+            
+            try {
+                if (language === 'javascript' || language === 'js') {
+                    // Create a sandbox for JavaScript execution
+                    const result = eval(code);
+                    outputDiv.textContent = result !== undefined ? String(result) : 'Code executed successfully';
+                } else if (language === 'html') {
+                    // For HTML, create an iframe to render it
+                    const iframe = document.createElement('iframe');
+                    iframe.style.width = '100%';
+                    iframe.style.height = '300px';
+                    iframe.style.border = '1px solid #ddd';
+                    iframe.style.borderRadius = '4px';
+                    iframe.style.marginTop = '1rem';
+                    
+                    outputDiv.innerHTML = '';
+                    outputDiv.appendChild(iframe);
+                    
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    iframeDoc.open();
+                    iframeDoc.write(code);
+                    iframeDoc.close();
+                } else if (language === 'css') {
+                    // For CSS, create a demo with the styles applied
+                    const demoDiv = document.createElement('div');
+                    demoDiv.innerHTML = `
+                        <style>${code}</style>
+                        <div style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 1rem;">
+                            <p>CSS Demo</p>
+                            <div class="demo-content">
+                                <h3>Sample Content</h3>
+                                <p>This demonstrates your CSS styles.</p>
+                                <button>Sample Button</button>
+                            </div>
+                        </div>
+                    `;
+                    outputDiv.innerHTML = '';
+                    outputDiv.appendChild(demoDiv);
+                } else {
+                    outputDiv.textContent = `Code execution for ${language} is not supported in the browser. This would typically run on the server.`;
+                }
+            } catch (error) {
+                outputDiv.textContent = `Error: ${error.message}`;
+                outputDiv.style.color = '#dc3545';
+            }
+        }
+
+        // Prompt Complexity Analysis System
+        function analyzePromptComplexity(prompt) {
+            const lowerPrompt = prompt.toLowerCase().trim();
+            
+            // Simple greetings and basic responses
+            const simplePatterns = [
+                /^(hi|hello|hey|hola|good morning|good afternoon|good evening)$/,
+                /^(thanks?|thank you|ty)$/,
+                /^(bye|goodbye|see you|cya)$/,
+                /^(yes|no|ok|okay|sure)$/,
+                /^(how are you|what's up|sup)$/,
+                /^(what time is it|what day is it)$/
+            ];
+
+            // Complex task indicators
+            const complexPatterns = [
+                /build|create|develop|make|design|implement/,
+                /write.*code|program|script/,
+                /analyze|research|find|search/,
+                /explain.*how|tutorial|guide|steps/,
+                /help.*with|solve|fix|debug/,
+                /plan|strategy|approach/,
+                /compare|difference|versus/
+            ];
+
+            // Check for simple patterns
+            for (const pattern of simplePatterns) {
+                if (pattern.test(lowerPrompt)) {
+                    return 'simple';
+                }
+            }
+
+            // Check for complex patterns
+            for (const pattern of complexPatterns) {
+                if (pattern.test(lowerPrompt)) {
+                    return 'complex';
+                }
+            }
+
+            // Length-based complexity
+            if (prompt.length < 20) {
+                return 'simple';
+            } else if (prompt.length > 100) {
+                return 'complex';
+            }
+
+            return 'medium';
+        }
+
+        // Thinking Canvas Management
+        function createThinkingCanvas(messageId) {
+            const canvas = document.createElement('div');
+            canvas.className = 'thinking-canvas';
+            canvas.id = `thinking-canvas-${messageId}`;
+            
+            canvas.innerHTML = `
+                <div class="thinking-canvas-header" onclick="toggleThinkingCanvas('${messageId}')">
+                    <div class="thinking-canvas-title">
+                        <i class="fas fa-brain"></i>
+                        <span>thinking... processes</span>
+                    </div>
+                    <span class="thinking-canvas-toggle">▼</span>
+                </div>
+                <div class="thinking-canvas-content" id="thinking-content-${messageId}">
+                    <div class="thinking-canvas-inner" id="thinking-inner-${messageId}">
+                        <div class="thinking-step backend-log log-process">
+                            <div class="thinking-step-header">
+                                <span class="log-icon">⏳</span>
+                                <span class="log-message">Connecting...</span>
+                                <span class="log-timestamp">${new Date().toLocaleTimeString()}</span>
+                            </div>
+                            <div class="thinking-step-content log-details">
+                                Waiting for backend processing logs...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add placeholder for detailed thinking process, initially hidden
+            const detailedContainer = document.createElement('div');
+            detailedContainer.className = 'detailed-thinking-container';
+            detailedContainer.id = `detailed-thinking-container-${messageId}`;
+            detailedContainer.style.display = 'none'; // Hide until final results are in
+            
+            detailedContainer.innerHTML = `
+                <div class="detailed-thinking-header" onclick="toggleDetailedThinking('${messageId}')">
+                    <span>See thinking process in detail</span>
+                    <span class="detailed-thinking-toggle" id="detailed-thinking-toggle-${messageId}">▼</span>
+                </div>
+                <div class="detailed-thinking-content" id="detailed-thinking-content-${messageId}">
+                    <!-- Detailed results will be rendered here -->
+                </div>
+            `;
+            
+            const thinkingInner = canvas.querySelector(`#thinking-inner-${messageId}`);
+            thinkingInner.appendChild(detailedContainer);
+
+            return canvas;
+        }
+
+        function toggleThinkingCanvas(messageId) {
+            const content = document.getElementById(`thinking-content-${messageId}`);
+            const toggle = document.querySelector(`#thinking-canvas-${messageId} .thinking-canvas-toggle`);
+            
+            content.classList.toggle('expanded');
+            toggle.classList.toggle('expanded');
+        }
+
+        function addThinkingStep(messageId, title, content) {
+            const thinkingInner = document.getElementById(`thinking-inner-${messageId}`);
+            if (!thinkingInner) return;
+            
+            const step = document.createElement('div');
+            step.className = 'thinking-step';
+            step.innerHTML = `
+                <div class="thinking-step-header">${title}</div>
+                <div class="thinking-step-content">${content}</div>
+            `;
+            
+            thinkingInner.appendChild(step);
+        }
+
+        // Live Response Streaming
+        function createLiveResponse(role = 'ai') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const avatar = document.createElement('div');
+            avatar.className = `message-avatar ${role}-avatar`;
+            avatar.textContent = role === 'user' ? 'U' : 'AI';
+            
+            const roleSpan = document.createElement('span');
+            roleSpan.className = 'message-role';
+            roleSpan.textContent = role === 'user' ? 'You' : 'Omnix AI';
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.appendChild(avatar);
+            header.appendChild(roleSpan);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content live-response';
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(contentDiv);
+            
+            chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+            
+            return contentDiv;
+        }
+
+        function typeResponse(element, text, speed = 30) {
+            return new Promise((resolve) => {
+                let i = 0;
+                element.innerHTML = '';
+                
+                const cursor = document.createElement('span');
+                cursor.className = 'typing-cursor';
+                element.appendChild(cursor);
+                
+                const timer = setInterval(() => {
+                    if (i < text.length) {
+                        element.insertBefore(document.createTextNode(text.charAt(i)), cursor);
+                        i++;
+                        scrollToBottom();
+                    } else {
+                        cursor.remove();
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, speed);
+            });
+        }
+
+        // Enhanced API integration with streaming support
+        async function makeStreamingRequest(endpoint, body, onThinkingStep = null, onResponseChunk = null, onBackendLog = null) {
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify({
+                        ...body,
+                        stream: true,
+                        include_thinking: true,
+                        include_logs: true
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Check if streaming is supported
+                if (response.headers.get('content-type')?.includes('text/event-stream')) {
+                    return await handleStreamingResponse(response, onThinkingStep, onResponseChunk, onBackendLog);
+                } else {
+                    // Fallback to regular JSON response
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error('Streaming request error:', error);
+                throw error;
+            }
+        }
+
+        async function handleStreamingResponse(response, onThinkingStep, onResponseChunk, onBackendLog) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let result = { response: '', thinking_steps: [], code_blocks: [], final_result: null };
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.type === 'thinking_step' && onThinkingStep) {
+                                    onThinkingStep(data.step);
+                                } else if (data.type === 'response_chunk' && onResponseChunk) {
+                                    onResponseChunk(data.chunk);
+                                    result.response += data.chunk;
+                                } else if (data.type === 'backend_log' && onBackendLog) {
+                                    onBackendLog(data.log);
+                                } else if (data.type === 'log_message' && onBackendLog) {
+                                    onBackendLog(data);
+                                } else if (data.type === 'code_block') {
+                                    result.code_blocks.push(data.code);
+                                } else if (data.type === 'complete') {
+                                    if (data.result) {
+                                        result.final_result = data.result;
+                                    }
+                                    // The stream is complete, we can return the final aggregated result.
+                                    return result;
+                                }
+                            } catch (e) {
+                                // Skip invalid JSON lines
+                                console.error("Failed to parse stream data:", line, e);
+                                continue;
+                            }
+                        }
+                    }
+                }
+            } finally {
+                reader.releaseLock();
+            }
+
+            return result;
+        }
+
+        // Parse backend log messages from enhanced_complex_mode.py
+        function parseBackendLog(logMessage) {
+            // Handle both raw log strings and structured log objects
+            let logText = typeof logMessage === 'string' ? logMessage : logMessage.message || '';
+            
+            // Extract timestamp
+            const timestampMatch = logText.match(/\[(\d{2}:\d{2}:\d{2})\]/);
+            const timestamp = timestampMatch ? timestampMatch[1] : new Date().toLocaleTimeString();
+            
+            // Extract log level
+            const levelMatch = logText.match(/\b(INFO|DEBUG|WARNING|ERROR)\b/);
+            const level = levelMatch ? levelMatch[1] : 'INFO';
+            
+            // Extract the main message (remove timestamp, file info, and level)
+            let message = logText
+                .replace(/\[\d{2}:\d{2}:\d{2}\]/, '') // Remove timestamp
+                .replace(/enhanced_complex_mode\.py:\d+/, '') // Remove file info
+                .replace(/\b(INFO|DEBUG|WARNING|ERROR)\b/, '') // Remove log level
+                .trim();
+            
+            // Detect log type based on content
+            let logType = 'process';
+            let icon = '⚙️';
+            
+            if (message.includes('🧠') || message.includes('Deep Think')) {
+                logType = 'thinking';
+                icon = '🧠';
+            } else if (message.includes('✅') || message.includes('completed')) {
+                logType = 'success';
+                icon = '✅';
+            } else if (message.includes('Planning notebook') || message.includes('notebook')) {
+                logType = 'planning';
+                icon = '📝';
+            } else if (message.includes('reasoning') || message.includes('chains')) {
+                logType = 'reasoning';
+                icon = '🔗';
+            } else if (message.includes('error') || level === 'ERROR') {
+                logType = 'error';
+                icon = '❌';
+            } else if (message.includes('warning') || level === 'WARNING') {
+                logType = 'warning';
+                icon = '⚠️';
+            }
+            
+            return {
+                timestamp,
+                level,
+                message: message || logText,
+                type: logType,
+                icon,
+                raw: logText
+            };
+        }
+
+        // Add live backend log to thinking canvas
+        function addLiveBackendLog(messageId, logData) {
+            const parsedLog = parseBackendLog(logData);
+            const thinkingInner = document.getElementById(`thinking-inner-${messageId}`);
+            if (!thinkingInner) return;
+            
+            const logStep = document.createElement('div');
+            logStep.className = `thinking-step backend-log log-${parsedLog.type}`;
+            
+            logStep.innerHTML = `
+                <div class="thinking-step-header">
+                    <span class="log-icon">${parsedLog.icon}</span>
+                    <span class="log-message">${parsedLog.message}</span>
+                    <span class="log-timestamp">${parsedLog.timestamp}</span>
+                </div>
+                <div class="thinking-step-content log-details">
+                    Level: ${parsedLog.level} | Type: ${parsedLog.type}
+                </div>
+            `;
+            
+            thinkingInner.appendChild(logStep);
+            
+            // Auto-scroll to show new logs
+            scrollToBottom();
+            
+            // Expand thinking canvas if it's collapsed
+            const thinkingContent = document.getElementById(`thinking-content-${messageId}`);
+            if (thinkingContent && !thinkingContent.classList.contains('expanded')) {
+                toggleThinkingCanvas(messageId);
+            }
+        }
+
         function showLoading() {
             loadingMessage.style.display = 'block';
             scrollToBottom();
@@ -3036,6 +5693,120 @@
 
         function scrollToBottom() {
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function toggleDetailedThinking(messageId) {
+            const content = document.getElementById(`detailed-thinking-content-${messageId}`);
+            const toggle = document.getElementById(`detailed-thinking-toggle-${messageId}`);
+            content.classList.toggle('expanded');
+            toggle.classList.toggle('expanded');
+        }
+
+        function renderDetailedThinkingProcess(messageId, results) {
+            const container = document.getElementById(`detailed-thinking-container-${messageId}`);
+            const contentDiv = document.getElementById(`detailed-thinking-content-${messageId}`);
+            if (!container || !contentDiv) return;
+
+            // Make the container visible
+            container.style.display = 'block';
+            
+            let html = '';
+
+            // 1. Multi-Stage Reasoning
+            if (results.multi_stage_reasoning) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">🧠 Multi-Stage Reasoning</div>
+                        <div class="detail-section-content">
+                            <strong>Analysis:</strong>
+                            <p>${results.multi_stage_reasoning.analysis}</p>
+                            <strong>Architecture:</strong>
+                            <p>${results.multi_stage_reasoning.architecture}</p>
+                            <strong>Implementation:</strong>
+                            <p>${results.multi_stage_reasoning.implementation}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 2. Multi-Perspective Analysis
+            if (results.multi_perspective_analysis) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">👁️ Multi-Perspective Analysis</div>
+                        <div class="detail-section-content">${results.multi_perspective_analysis}</div>
+                    </div>
+                `;
+            }
+
+            // 3. Enhanced Sequential Thinking
+            if (results.enhanced_sequential_thinking) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">🔗 Enhanced Sequential Thinking</div>
+                        <div class="detail-section-content">${results.enhanced_sequential_thinking.thinking_process}</div>
+                    </div>
+                `;
+            }
+
+            contentDiv.innerHTML = html;
+        }
+
+        function toggleDetailedThinking(messageId) {
+            const content = document.getElementById(`detailed-thinking-content-${messageId}`);
+            const toggle = document.getElementById(`detailed-thinking-toggle-${messageId}`);
+            content.classList.toggle('expanded');
+            toggle.classList.toggle('expanded');
+        }
+
+        function renderDetailedThinkingProcess(messageId, results) {
+            const container = document.getElementById(`detailed-thinking-container-${messageId}`);
+            const contentDiv = document.getElementById(`detailed-thinking-content-${messageId}`);
+            if (!container || !contentDiv) return;
+
+            // Make the container visible
+            container.style.display = 'block';
+            
+            let html = '';
+
+            // 1. Multi-Stage Reasoning
+            if (results.multi_stage_reasoning) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">🧠 Multi-Stage Reasoning</div>
+                        <div class="detail-section-content">
+                            <strong>Analysis:</strong>
+                            <p>${results.multi_stage_reasoning.analysis}</p>
+                            <strong>Architecture:</strong>
+                            <p>${results.multi_stage_reasoning.architecture}</p>
+                            <strong>Implementation:</strong>
+                            <p>${results.multi_stage_reasoning.implementation}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 2. Multi-Perspective Analysis
+            if (results.multi_perspective_analysis) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">👁️ Multi-Perspective Analysis</div>
+                        <div class="detail-section-content">${results.multi_perspective_analysis}</div>
+                    </div>
+                `;
+            }
+
+            // 3. Enhanced Sequential Thinking
+            if (results.enhanced_sequential_thinking) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">🔗 Enhanced Sequential Thinking</div>
+                        <div class="detail-section-content">${results.enhanced_sequential_thinking.thinking_process}</div>
+                    </div>
+                `;
+            }
+
+            contentDiv.innerHTML = html;
         }
 
         // Sidebar functionality
@@ -4378,15 +7149,63 @@
                 
                 setMode(newMode) {
                     this.mode = newMode;
+                    const voiceSphere = document.getElementById('voice-sphere');
                     
+                    // Remove all mode classes from dots and sphere
                     this.dots.forEach(dot => {
-                        dot.element.classList.remove('active', 'ai-speaking');
-                        
-                        if (newMode === 'user_speaking') {
+                        dot.element.classList.remove('active', 'ai-speaking', 'wave-animation');
+                    });
+                    
+                    if (voiceSphere) {
+                        voiceSphere.classList.remove('ai-speaking', 'user-speaking');
+                    }
+                    
+                    if (newMode === 'user_speaking') {
+                        this.dots.forEach(dot => {
                             dot.element.classList.add('active');
-                        } else if (newMode === 'ai_responding') {
-                            dot.element.classList.add('ai-speaking');
+                        });
+                        if (voiceSphere) {
+                            voiceSphere.classList.add('user-speaking');
                         }
+                    } else if (newMode === 'ai_responding') {
+                        // Add wave animation to dots with staggered timing
+                        this.dots.forEach((dot, index) => {
+                            setTimeout(() => {
+                                dot.element.classList.add('ai-speaking');
+                                if (Math.random() > 0.7) { // 30% chance for wave effect
+                                    dot.element.style.animationDelay = `${index * 0.05}s`;
+                                    dot.element.classList.add('wave-animation');
+                                }
+                            }, index * 10); // Stagger the activation
+                        });
+                        
+                        if (voiceSphere) {
+                            voiceSphere.classList.add('ai-speaking');
+                        }
+                        
+                        // Add scatter effect every 2 seconds during AI speaking
+                        this.scatterInterval = setInterval(() => {
+                            if (this.mode === 'ai_responding') {
+                                this.triggerScatter();
+                            }
+                        }, 2000);
+                    } else {
+                        // Clear any intervals when not speaking
+                        if (this.scatterInterval) {
+                            clearInterval(this.scatterInterval);
+                            this.scatterInterval = null;
+                        }
+                    }
+                },
+
+                triggerScatter() {
+                    // Select random dots for scatter effect
+                    const randomDots = this.dots.filter(() => Math.random() > 0.8);
+                    randomDots.forEach(dot => {
+                        dot.element.classList.add('scattered');
+                        setTimeout(() => {
+                            dot.element.classList.remove('scattered');
+                        }, 600);
                     });
                 },
                 
@@ -5093,6 +7912,485 @@
         let currentSessionId = null;
         let sessionActive = false;
 
+        // Settings Modal Functions
+        function showSettingsModal() {
+            const settingsModal = document.getElementById('settings-modal');
+            settingsModal.classList.add('active');
+        }
+
+        function hideSettingsModal() {
+            const settingsModal = document.getElementById('settings-modal');
+            settingsModal.classList.remove('active');
+        }
+
+        function switchSettingsSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.settings-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active from all nav items
+            document.querySelectorAll('.settings-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected section
+            const targetSection = document.getElementById(sectionName + '-section');
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
+            
+            // Add active to selected nav item
+            const targetNavItem = document.querySelector(`[data-section="${sectionName}"]`);
+            if (targetNavItem) {
+                targetNavItem.classList.add('active');
+            }
+        }
+
+        function updateFontPreview() {
+            const fontSelect = document.getElementById('font-family-select');
+            const fontPreview = document.getElementById('font-preview');
+            const selectedFont = fontSelect.value;
+            
+            fontPreview.style.fontFamily = selectedFont;
+            
+            // Apply to body as well
+            document.body.style.fontFamily = selectedFont;
+        }
+
+        function selectTheme(theme) {
+            // Remove active from all theme options
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            
+            // Add active to selected theme
+            const selectedOption = document.querySelector(`[data-theme="${theme}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('active');
+            }
+            
+            // Apply theme
+            applyTheme(theme);
+            
+            // Store theme preference
+            localStorage.setItem('omnix-theme', theme);
+        }
+
+        function applyTheme(theme) {
+            const body = document.body;
+            
+            // Remove existing theme classes
+            body.classList.remove('theme-light', 'theme-dark', 'theme-system');
+            
+            if (theme === 'dark') {
+                body.classList.add('theme-dark');
+                body.style.background = '#2d2d2d';
+                body.style.backgroundColor = '#2d2d2d';
+                body.style.color = '#ffffff';
+                
+                // Force all major containers to dark
+                const containers = document.querySelectorAll('.main-content, .chat-interface, .welcome-screen, .chat-messages, .chat-input-area, .input-wrapper, .welcome-input-container');
+                containers.forEach(container => {
+                    container.style.background = '#2d2d2d';
+                    container.style.backgroundColor = '#2d2d2d';
+                    container.style.color = '#ffffff';
+                });
+                
+            } else if (theme === 'light') {
+                body.classList.add('theme-light');
+                body.style.background = '#f7f7f5';
+                body.style.backgroundColor = '#f7f7f5';
+                body.style.color = '#1a1a1a';
+                
+                // Force all major containers to light
+                const containers = document.querySelectorAll('.main-content, .chat-interface, .welcome-screen, .chat-messages, .chat-input-area, .input-wrapper, .welcome-input-container');
+                containers.forEach(container => {
+                    container.style.background = '#f7f7f5';
+                    container.style.backgroundColor = '#f7f7f5';
+                    container.style.color = '#1a1a1a';
+                });
+                
+            } else if (theme === 'system') {
+                body.classList.add('theme-system');
+                // Check system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (prefersDark) {
+                    body.style.background = '#2d2d2d';
+                    body.style.backgroundColor = '#2d2d2d';
+                    body.style.color = '#ffffff';
+                } else {
+                    body.style.background = '#f7f7f5';
+                    body.style.backgroundColor = '#f7f7f5';
+                    body.style.color = '#1a1a1a';
+                }
+            }
+            
+            // Update other elements
+            updateThemeElements(theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+        }
+
+        function updateThemeElements(isDark) {
+            const elements = {
+                sidebar: document.querySelector('.sidebar'),
+                sidebarMini: document.querySelector('.sidebar-mini'),
+                mainContent: document.querySelector('.main-content'),
+                chatMessages: document.querySelector('.chat-messages'),
+                welcomeScreen: document.querySelector('.welcome-screen'),
+                chatInterface: document.querySelector('.chat-interface'),
+                chatInputArea: document.querySelector('.chat-input-area'),
+                chatInput: document.querySelector('#chat-input'),
+                welcomeInput: document.querySelector('#welcome-input')
+            };
+
+            if (isDark) {
+                // Dark theme colors
+                if (elements.sidebar) {
+                    elements.sidebar.style.background = '#2d2d2d';
+                    elements.sidebar.style.borderColor = '#404040';
+                    elements.sidebar.style.color = '#ffffff';
+                }
+                if (elements.sidebarMini) {
+                    elements.sidebarMini.style.background = '#2d2d2d';
+                }
+                if (elements.mainContent) {
+                    elements.mainContent.style.background = '#2d2d2d';
+                    elements.mainContent.style.color = '#ffffff';
+                    elements.mainContent.style.opacity = '1';
+                }
+                if (elements.chatMessages) {
+                    elements.chatMessages.style.background = '#2d2d2d';
+                    elements.chatMessages.style.color = '#ffffff';
+                    elements.chatMessages.style.opacity = '1';
+                }
+                if (elements.welcomeScreen) {
+                    elements.welcomeScreen.style.background = '#2d2d2d';
+                    elements.welcomeScreen.style.color = '#ffffff';
+                    elements.welcomeScreen.style.opacity = '1';
+                }
+                if (elements.chatInterface) {
+                    elements.chatInterface.style.background = '#2d2d2d';
+                    elements.chatInterface.style.color = '#ffffff';
+                    elements.chatInterface.style.opacity = '1';
+                }
+                if (elements.chatInputArea) {
+                    elements.chatInputArea.style.background = '#2d2d2d';
+                    elements.chatInputArea.style.borderColor = '#404040';
+                    elements.chatInputArea.style.opacity = '1';
+                }
+                if (elements.chatInput) {
+                    elements.chatInput.style.background = '#383838';
+                    elements.chatInput.style.color = '#ffffff';
+                    elements.chatInput.style.borderColor = '#555555';
+                }
+                if (elements.welcomeInput) {
+                    elements.welcomeInput.style.background = '#383838';
+                    elements.welcomeInput.style.color = '#ffffff';
+                    elements.welcomeInput.style.borderColor = '#555555';
+                }
+
+                // Force update input wrappers
+                const inputWrappers = document.querySelectorAll('.input-wrapper');
+                inputWrappers.forEach(wrapper => {
+                    wrapper.style.background = '#2d2d2d';
+                    wrapper.style.borderColor = '#404040';
+                });
+
+                // Force update welcome input container
+                const welcomeInputContainers = document.querySelectorAll('.welcome-input-container');
+                welcomeInputContainers.forEach(container => {
+                    container.style.background = '#2d2d2d';
+                    container.style.opacity = '1';
+                });
+                
+                // Update all text elements
+                updateTextElements('#ffffff');
+                
+                // Update chat messages
+                updateChatMessages(true);
+                
+                // Update buttons and controls
+                updateControlElements(true);
+                
+            } else {
+                // Light theme colors
+                if (elements.sidebar) {
+                    elements.sidebar.style.background = '#ffffff';
+                    elements.sidebar.style.borderColor = '#e5e5e5';
+                    elements.sidebar.style.color = '#1a1a1a';
+                }
+                if (elements.sidebarMini) {
+                    elements.sidebarMini.style.background = '#ffffff';
+                }
+                if (elements.mainContent) {
+                    elements.mainContent.style.background = '#f7f7f5';
+                    elements.mainContent.style.color = '#1a1a1a';
+                }
+                if (elements.chatMessages) {
+                    elements.chatMessages.style.background = '#f7f7f5';
+                    elements.chatMessages.style.color = '#1a1a1a';
+                }
+                if (elements.welcomeScreen) {
+                    elements.welcomeScreen.style.background = '#f7f7f5';
+                    elements.welcomeScreen.style.color = '#1a1a1a';
+                }
+                if (elements.chatInterface) {
+                    elements.chatInterface.style.background = '#f7f7f5';
+                    elements.chatInterface.style.color = '#1a1a1a';
+                }
+                if (elements.chatInputArea) {
+                    elements.chatInputArea.style.background = '#ffffff';
+                    elements.chatInputArea.style.borderColor = '#e5e5e5';
+                }
+                if (elements.chatInput) {
+                    elements.chatInput.style.background = '#ffffff';
+                    elements.chatInput.style.color = '#1a1a1a';
+                    elements.chatInput.style.borderColor = '#e5e5e5';
+                }
+                if (elements.welcomeInput) {
+                    elements.welcomeInput.style.background = '#ffffff';
+                    elements.welcomeInput.style.color = '#1a1a1a';
+                    elements.welcomeInput.style.borderColor = '#e5e5e5';
+                }
+
+                // Force update input wrappers
+                const inputWrappers = document.querySelectorAll('.input-wrapper');
+                inputWrappers.forEach(wrapper => {
+                    wrapper.style.background = '#ffffff';
+                    wrapper.style.borderColor = '#e5e5e5';
+                });
+
+                // Force update welcome input container
+                const welcomeInputContainers = document.querySelectorAll('.welcome-input-container');
+                welcomeInputContainers.forEach(container => {
+                    container.style.background = '#f7f7f5';
+                });
+                
+                // Update all text elements
+                updateTextElements('#1a1a1a');
+                
+                // Update chat messages
+                updateChatMessages(false);
+                
+                // Update buttons and controls
+                updateControlElements(false);
+            }
+        }
+
+        function updateTextElements(color) {
+            // Update all text elements aggressively with full opacity
+            const textElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6, p, span, div, label, button, .mode-btn, .welcome-title');
+            textElements.forEach(element => {
+                // Skip elements that should keep their specific colors (like brand elements)
+                if (!element.classList.contains('omnix-icon') && 
+                    !element.classList.contains('user-message') && 
+                    !element.classList.contains('new-chat-btn')) {
+                    element.style.color = color + ' !important';
+                    element.style.opacity = '1 !important';
+                }
+            });
+
+            // Specifically target chat area elements
+            const chatElements = document.querySelectorAll('.chat-messages *, .welcome-screen *, .chat-interface *');
+            chatElements.forEach(element => {
+                if (!element.classList.contains('omnix-icon') && 
+                    !element.classList.contains('user-message')) {
+                    element.style.color = color + ' !important';
+                    element.style.opacity = '1 !important';
+                }
+            });
+
+            // Target mode buttons specifically
+            const modeButtons = document.querySelectorAll('.mode-btn, .mode-btn span, .mode-btn i');
+            modeButtons.forEach(element => {
+                element.style.color = color + ' !important';
+                element.style.opacity = '1 !important';
+            });
+        }
+
+        function updateChatMessages(isDark) {
+            const chatMessages = document.querySelectorAll('.message');
+            chatMessages.forEach(message => {
+                if (isDark) {
+                    message.style.background = '#2d2d2d';
+                    message.style.color = '#ffffff';
+                    message.style.borderColor = '#404040';
+                } else {
+                    message.style.background = '#ffffff';
+                    message.style.color = '#1a1a1a';
+                    message.style.borderColor = '#e5e5e5';
+                }
+            });
+
+            // Update user messages
+            const userMessages = document.querySelectorAll('.user-message');
+            userMessages.forEach(message => {
+                if (isDark) {
+                    message.style.background = '#c17b47';
+                    message.style.color = '#ffffff';
+                } else {
+                    message.style.background = '#c17b47';
+                    message.style.color = '#ffffff';
+                }
+            });
+        }
+
+        function updateControlElements(isDark) {
+            // Update control buttons
+            const controlButtons = document.querySelectorAll('.input-control-btn, .welcome-control-btn');
+            controlButtons.forEach(button => {
+                if (isDark) {
+                    button.style.background = '#383838';
+                    button.style.color = '#ffffff';
+                    button.style.borderColor = '#555555';
+                } else {
+                    button.style.background = '#f8f8f8';
+                    button.style.color = '#666666';
+                    button.style.borderColor = '#e5e5e5';
+                }
+            });
+
+            // Update dropdowns and menus
+            const dropdowns = document.querySelectorAll('.model-dropdown, .plus-menu, .slider-popup');
+            dropdowns.forEach(dropdown => {
+                if (isDark) {
+                    dropdown.style.background = '#2d2d2d';
+                    dropdown.style.color = '#ffffff';
+                    dropdown.style.borderColor = '#404040';
+                } else {
+                    dropdown.style.background = '#ffffff';
+                    dropdown.style.color = '#1a1a1a';
+                    dropdown.style.borderColor = '#e5e5e5';
+                }
+            });
+        }
+
+        function loadSavedTheme() {
+            const savedTheme = localStorage.getItem('omnix-theme') || 'light';
+            selectTheme(savedTheme);
+        }
+
+        function selectVoice(voiceId) {
+            // Remove active from all voice options
+            document.querySelectorAll('.voice-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            
+            // Add active to selected voice
+            const selectedOption = document.querySelector(`[data-voice="${voiceId}"]`);
+            if (selectedOption) {
+                selectedOption.classList.add('active');
+            }
+            
+            console.log('Voice selected:', voiceId);
+        }
+
+        function previewVoice(voiceId) {
+            console.log('Preview voice:', voiceId);
+            // Implement voice preview functionality here
+            // This would typically play a sample audio with the selected voice
+        }
+
+        function applySuggestion(suggestionType) {
+            const liveModePrompt = document.getElementById('live-mode-prompt');
+            
+            const suggestions = {
+                'personal-assistant': 'You are a helpful personal assistant. Be professional, efficient, and proactive in helping with tasks.',
+                'emotional-partner': 'You are a caring and empathetic companion. Listen actively, provide emotional support, and respond with warmth.',
+                'mindfulness': 'You are a mindfulness guide. Help with meditation, breathing exercises, and promoting mental well-being with a calm, peaceful tone.',
+                'creative-companion': 'You are a creative partner. Encourage imagination, provide inspiration, and help brainstorm innovative ideas.',
+                'study-buddy': 'You are a study companion. Help with learning, provide explanations, quiz knowledge, and motivate academic progress.'
+            };
+            
+            if (suggestions[suggestionType]) {
+                liveModePrompt.value = suggestions[suggestionType];
+            }
+        }
+
+        function updateCreativitySlider() {
+            const slider = document.getElementById('creativity-slider');
+            const value = slider.value;
+            
+            // Update any model temperature settings based on checked models
+            const liveVoiceModel = document.getElementById('live-voice-model').checked;
+            const omnixFlash = document.getElementById('omnix-flash').checked;
+            const omnixMaxima = document.getElementById('omnix-maxima').checked;
+            
+            console.log('Creativity level:', value, {
+                liveVoiceModel,
+                omnixFlash,
+                omnixMaxima
+            });
+        }
+
+        // Initialize Settings Modal Event Listeners
+        function initializeSettingsModal() {
+            const settingsModal = document.getElementById('settings-modal');
+            const settingsCloseBtn = document.getElementById('settings-close-btn');
+            const fontFamilySelect = document.getElementById('font-family-select');
+            const creativitySlider = document.getElementById('creativity-slider');
+            
+            // Close modal event listeners
+            settingsCloseBtn.addEventListener('click', hideSettingsModal);
+            settingsModal.addEventListener('click', (e) => {
+                if (e.target === settingsModal) {
+                    hideSettingsModal();
+                }
+            });
+            
+            // Navigation event listeners
+            document.querySelectorAll('.settings-nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const section = item.getAttribute('data-section');
+                    switchSettingsSection(section);
+                });
+            });
+            
+            // Font selection
+            fontFamilySelect.addEventListener('change', updateFontPreview);
+            
+            // Theme selection
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const theme = option.getAttribute('data-theme');
+                    selectTheme(theme);
+                });
+            });
+            
+            // Voice selection
+            document.querySelectorAll('.voice-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const voice = option.getAttribute('data-voice');
+                    selectVoice(voice);
+                });
+            });
+            
+            // Voice preview buttons
+            document.querySelectorAll('.voice-preview-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const voiceId = btn.getAttribute('data-voice-id');
+                    previewVoice(voiceId);
+                });
+            });
+            
+            // Suggestion buttons
+            document.querySelectorAll('.suggestion-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const suggestion = btn.getAttribute('data-suggestion');
+                    applySuggestion(suggestion);
+                });
+            });
+            
+            // Creativity slider
+            creativitySlider.addEventListener('input', updateCreativitySlider);
+            
+            // Model toggles
+            document.querySelectorAll('.model-toggle input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', updateCreativitySlider);
+            });
+        }
+
         // Initialize socket connection
         function initializeSocket() {
             socket = io();
@@ -5422,6 +8720,136 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize socket after other initializations
             setTimeout(initializeSocket, 1000);
+            
+            // Initialize model dropdown
+            initializeModelDropdown();
+        });
+
+        // Global variable to track current model
+        let currentModel = 'flash'; // Default to Omnix Flash
+
+        function initializeModelDropdown() {
+            // Get elements for both welcome and chat dropdowns
+            const welcomeSelector = document.getElementById('welcome-model-selector');
+            const welcomeDropdown = document.getElementById('welcome-model-dropdown');
+            const welcomeSelectedModel = document.getElementById('welcome-selected-model');
+            
+            const chatSelector = document.getElementById('chat-model-selector');
+            const chatDropdown = document.getElementById('chat-model-dropdown');
+            const chatSelectedModel = document.getElementById('chat-selected-model');
+
+            // Set up welcome dropdown
+            if (welcomeSelector && welcomeDropdown) {
+                setupDropdown(welcomeSelector, welcomeDropdown, welcomeSelectedModel, 'welcome');
+            }
+
+            // Set up chat dropdown
+            if (chatSelector && chatDropdown) {
+                setupDropdown(chatSelector, chatDropdown, chatSelectedModel, 'chat');
+            }
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.model-selector-wrapper')) {
+                    document.querySelectorAll('.model-dropdown').forEach(dropdown => {
+                        dropdown.classList.remove('show');
+                    });
+                    document.querySelectorAll('.model-selector-btn').forEach(btn => {
+                        btn.classList.remove('open');
+                    });
+                }
+            });
+
+            // Set initial selected state for flash option
+            updateModelSelection('flash');
+        }
+
+        function setupDropdown(selectorBtn, dropdown, selectedModelSpan, type) {
+            // Toggle dropdown
+            selectorBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Close other dropdowns
+                document.querySelectorAll('.model-dropdown').forEach(dd => {
+                    if (dd !== dropdown) dd.classList.remove('show');
+                });
+                document.querySelectorAll('.model-selector-btn').forEach(btn => {
+                    if (btn !== selectorBtn) btn.classList.remove('open');
+                });
+
+                // Toggle current dropdown
+                dropdown.classList.toggle('show');
+                selectorBtn.classList.toggle('open');
+            });
+
+            // Handle option selection
+            dropdown.querySelectorAll('.model-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const model = option.dataset.model;
+                    
+                    if (model !== currentModel) {
+                        selectModel(model);
+                    }
+                    
+                    dropdown.classList.remove('show');
+                    selectorBtn.classList.remove('open');
+                });
+            });
+        }
+
+        function selectModel(model) {
+            currentModel = model;
+            
+            // Update UI
+            updateModelSelection(model);
+            
+            // Handle mode switching
+            if (model === 'maxima') {
+                currentMode = 'complex';
+            } else {
+                currentMode = 'research'; // Default mode for Flash
+            }
+        }
+
+        function updateModelSelection(model) {
+            const modelNames = {
+                'flash': 'Omnix Flash',
+                'maxima': 'Omnix Maxima'
+            };
+
+            // Update dropdown buttons text
+            document.querySelectorAll('[id$="-selected-model"]').forEach(span => {
+                span.textContent = modelNames[model];
+            });
+
+            // Update selected state in dropdowns
+            document.querySelectorAll('.model-option').forEach(option => {
+                option.classList.remove('selected');
+                if (option.dataset.model === model) {
+                    option.classList.add('selected');
+                }
+            });
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize socket after other initializations
+            setTimeout(initializeSocket, 1000);
+            
+            // Initialize settings modal
+            initializeSettingsModal();
+            
+            // Load saved theme
+            loadSavedTheme();
+            
+            // Listen for system theme changes
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                const currentTheme = localStorage.getItem('omnix-theme');
+                if (currentTheme === 'system') {
+                    applyTheme('system');
+                }
+            });
         });
 
     </script>
