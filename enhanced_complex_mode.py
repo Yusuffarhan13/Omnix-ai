@@ -239,23 +239,23 @@ class EnhancedComplexModeManager:
         try:
             self.shared_memory.clear_memory()
 
-            # Step 1: Multi-Stage Reasoning
-            self.logger.info("🧠 Starting Multi-Stage Reasoning...")
-            analysis_result, architecture_result, implementation_result = await self.multi_stage_reasoning(task)
-            self.shared_memory.add_response('multi_stage_analysis', analysis_result)
-            self.shared_memory.add_response('multi_stage_architecture', architecture_result)
-            self.shared_memory.add_response('multi_stage_implementation', implementation_result)
-            session['results']['multi_stage_reasoning'] = {
-                'analysis': analysis_result,
-                'architecture': architecture_result,
-                'implementation': implementation_result
-            }
+            # Step 1: Multi-Stage Reasoning (Disabled to save memory)
+            # self.logger.info("🧠 Starting Multi-Stage Reasoning...")
+            # analysis_result, architecture_result, implementation_result = await self.multi_stage_reasoning(task)
+            # self.shared_memory.add_response('multi_stage_analysis', analysis_result)
+            # self.shared_memory.add_response('multi_stage_architecture', architecture_result)
+            # self.shared_memory.add_response('multi_stage_implementation', implementation_result)
+            # session['results']['multi_stage_reasoning'] = {
+            #     'analysis': analysis_result,
+            #     'architecture': architecture_result,
+            #     'implementation': implementation_result
+            # }
 
-            # Step 2: Multi-Perspective Analysis
-            self.logger.info("🧠 Starting Multi-Perspective Analysis...")
-            perspective_analysis_result = await self.multi_perspective_analysis(task)
-            self.shared_memory.add_response('multi_perspective_analysis', perspective_analysis_result)
-            session['results']['multi_perspective_analysis'] = perspective_analysis_result
+            # Step 2: Multi-Perspective Analysis (Disabled to save memory)
+            # self.logger.info("🧠 Starting Multi-Perspective Analysis...")
+            # perspective_analysis_result = await self.multi_perspective_analysis(task)
+            # self.shared_memory.add_response('multi_perspective_analysis', perspective_analysis_result)
+            # session['results']['multi_perspective_analysis'] = perspective_analysis_result
 
             # Step 3: Enhanced Sequential Thinking
             self.logger.info("🧠 Starting Enhanced Sequential Thinking...")
