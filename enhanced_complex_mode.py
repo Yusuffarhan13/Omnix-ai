@@ -19,6 +19,7 @@ from typing import Dict, Any, List, Optional, Callable
 from pathlib import Path
 import base64
 import docker
+import threading
 
 # No external dependencies - using pure PraisonAI + Gemini integration
 
@@ -206,6 +207,7 @@ class EnhancedComplexModeManager:
         self.shared_memory = SharedMemorySystem(google_api_key)
         
         self.active_sessions = {}
+        self.session_lock = threading.Lock()
         
         self.logger.info("🚀 Enhanced Complex Mode Manager initialized successfully")
     
@@ -231,7 +233,8 @@ class EnhancedComplexModeManager:
             'results': {},
         }
         
-        self.active_sessions[session_id] = session
+        with self.session_lock:
+            self.active_sessions[session_id] = session
         
         try:
             self.shared_memory.clear_memory()
@@ -368,11 +371,13 @@ class EnhancedComplexModeManager:
 
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session by ID"""
-        return self.active_sessions.get(session_id)
+        with self.session_lock:
+            return self.active_sessions.get(session_id)
     
     def list_sessions(self) -> List[Dict[str, Any]]:
         """List all sessions"""
-        return list(self.active_sessions.values())
+        with self.session_lock:
+            return list(self.active_sessions.values())
     
     def cleanup(self):
         """Cleanup resources"""
