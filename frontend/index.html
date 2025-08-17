@@ -4808,8 +4808,12 @@
                 currentChatId = generateChatId();
             }
 
-            // Default to chat mode
-            currentMode = 'chat';
+            // Set mode based on the selected model
+            if (currentModel === 'maxima') {
+                currentMode = 'complex';
+            } else {
+                currentMode = 'chat';
+            }
             showChatInterface();
             
             // Process the message
