@@ -17,6 +17,7 @@ pillow
 aiofiles
 typing-extensions
 gunicorn
+eventlet
 openai
 whisper
 praisonaiagents

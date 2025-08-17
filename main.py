@@ -2501,4 +2501,5 @@ async def execute_interactive_browser_task(task_id, task_description):
 if __name__ == '__main__':
     init_db()
     # Use SocketIO's run method instead of Flask's run method
-    socketio.run(app, host='0.0.0.0', port=8003, debug=False, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get('PORT', 8003))
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
