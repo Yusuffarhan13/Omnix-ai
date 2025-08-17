@@ -74,38 +74,40 @@ class GeminiProDeepThinkManager:
     
     async def sequential_thinking_reasoning(self, prompt: str, max_thoughts: int = 10, thinking_budget: int = -1) -> Dict[str, Any]:
         """
-        Perform sequential thinking reasoning with an enhanced agent.
+        Perform sequential thinking reasoning with a direct Gemini call.
         """
         self.logger.info(f"🧠 Starting enhanced sequential thinking for: {prompt[:100]}...")
 
         try:
-            # Replace existing sequential thinking with enhanced version
-            enhanced_sequential_agent = Agent(
-                instructions="""Use deep reasoning with:
-                - Parallel evaluation of multiple solution paths
-                - Cross-validation between different approaches
-                - Iterative refinement based on intermediate results
-                - Think through edge cases and failure modes
-                - Consider long-term implications""",
-                llm="gemini/gemini-2.5-pro",
-                tools=MCP(
-                    command="npx",
-                    args=["-y", "@modelcontextprotocol/server-sequential-thinking"]
-                )
+            sequential_prompt = f"""
+            Analyze the following prompt and break it down into a step-by-step thinking process.
+            Provide a clear, logical sequence of thoughts to arrive at a solution.
+
+            PROMPT: "{prompt}"
+
+            SEQUENTIAL THINKING PROCESS:
+            1.  **Initial Analysis**: Deconstruct the prompt and identify the core requirements.
+            2.  **Information Gathering**: What information is needed? If web search is available, what queries would you perform?
+            3.  **Step-by-Step Plan**: Outline the logical steps to solve the problem.
+            4.  **Execution/Reasoning**: Think through each step of the plan.
+            5.  **Final Synthesis**: Combine the results into a coherent final answer.
+
+            Begin your thinking process now.
+            """
+            
+            response = await asyncio.to_thread(
+                self.model_deep_think.generate_content,
+                sequential_prompt
             )
 
-            # Run the enhanced agent
-            result = await asyncio.to_thread(
-                enhanced_sequential_agent.start,
-                prompt
-            )
+            result = response.text
 
             return {
                 'thinking_process': result,
-                'sequential_thoughts': [],  # This can be populated if the MCP tool provides thought chains
+                'sequential_thoughts': [],
                 'total_thoughts_generated': 0,
-                'thinking_budget_used': thinking_budget,
-                'confidence_score': 0.9,  # Default confidence for enhanced agent
+                'thinking_budget_used': -1,
+                'confidence_score': 0.9,
                 'reasoning_chains': [],
                 'alternative_solutions': []
             }
