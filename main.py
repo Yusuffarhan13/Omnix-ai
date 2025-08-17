@@ -1133,10 +1133,10 @@ def stream_complex_task(prompt, request_data):
             task_thread.start()
             
             # Stream logs as they come in
-            while True:
+            while task_thread.is_alive() or not log_queue.empty():
                 try:
-                    # Get log entry with timeout
-                    log_entry = log_queue.get(timeout=0.5)
+                    # Get log entry with a short timeout to avoid blocking
+                    log_entry = log_queue.get(timeout=0.1)
                     
                     if log_entry.get('type') == 'task_complete':
                         # Task is complete, send final result
@@ -1145,15 +1145,16 @@ def stream_complex_task(prompt, request_data):
                             yield f"data: {json.dumps({'type': 'complete', 'result': final_result})}\n\n"
                         elif 'error' in result_container:
                             yield f"data: {json.dumps({'type': 'error', 'error': result_container['error']})}\n\n"
+                        # This is the last message, so we can break
                         break
                     else:
                         # Send log entry
                         yield f"data: {json.dumps({'type': 'backend_log', 'log': log_entry})}\n\n"
                         
                 except queue.Empty:
-                    # Check if thread is still alive
-                    if not task_thread.is_alive():
-                        break
+                    # If the queue is empty, but the thread is still running,
+                    # just continue to the next iteration.
+                    # The loop condition will handle termination.
                     continue
                     
         finally:

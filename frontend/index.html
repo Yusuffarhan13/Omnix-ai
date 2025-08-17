@@ -5552,14 +5552,14 @@
         async function handleStreamingResponse(response, onThinkingStep, onResponseChunk, onBackendLog) {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            let result = { response: '', thinking_steps: [], code_blocks: [], final_result: null };
+            let result = { response: '', thinking_steps: [], code_blocks: [], final_result: null, error: null };
 
             try {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value);
+                    const chunk = decoder.decode(value, { stream: true });
                     const lines = chunk.split('\n');
 
                     for (const line of lines) {
@@ -5584,6 +5584,11 @@
                                     }
                                     // The stream is complete, we can return the final aggregated result.
                                     return result;
+                                } else if (data.type === 'error') {
+                                    // Capture backend errors and stop processing
+                                    result.error = data.error;
+                                    console.error('Backend streaming error:', data.error);
+                                    return result;
                                 }
                             } catch (e) {
                                 // Skip invalid JSON lines
@@ -5597,6 +5602,7 @@
                 reader.releaseLock();
             }
 
+            // This will be returned if the stream ends without a 'complete' or 'error' message
             return result;
         }
 

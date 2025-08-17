@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 300 main:app",
+    "startCommand": "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT --timeout 800 main:app",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
