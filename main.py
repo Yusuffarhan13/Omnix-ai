@@ -619,6 +619,10 @@ async def execute_browser_task(task_id, task_description):
 
 # --- Flask Routes ---
 @app.route('/')
+def landing():
+    return send_from_directory(app.template_folder, 'anexodos-landing.html')
+
+@app.route('/Omnix')
 def home():
     return send_from_directory(app.template_folder, 'index.html')
 
