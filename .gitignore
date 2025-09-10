@@ -77,3 +77,7 @@ C:\\*
 *.zip
 *.tar.gz
 *.rar
+
+# Credentials and secrets
+*.json
+omnix-ai-*-*.json
