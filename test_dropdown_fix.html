@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dropdown Z-Index Test</title>
+    <style>
+        .test-container {
+            position: relative;
+            margin: 50px;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        
+        .model-selector-wrapper {
+            position: relative;
+            display: inline-block;
+            overflow: visible;
+        }
+        
+        .model-selector-btn {
+            background: transparent;
+            color: #c17b47;
+            border: 1px solid #c17b47;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+        
+        .model-dropdown {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            min-width: 160px;
+            display: none;
+            margin-bottom: 4px;
+        }
+        
+        .model-dropdown.show {
+            display: block;
+        }
+        
+        .model-option {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .model-option:hover {
+            background: #f9f9f9;
+        }
+        
+        .high-z-element {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 123, 255, 0.9);
+            color: white;
+            padding: 20px;
+            z-index: 1000;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h3>Dropdown Upward Positioning Test</h3>
+        <p>Click the button below to test if dropdown appears ABOVE the button (upward direction)</p>
+        
+        <div class="model-selector-wrapper">
+            <button class="model-selector-btn" onclick="toggleDropdown()">
+                <span>Select Model</span>
+                <i class="fas fa-chevron-down"></i>
+            </button>
+            <div class="model-dropdown" id="testDropdown">
+                <div class="model-option">Omnix Flash</div>
+                <div class="model-option">Omnix Maxima</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="high-z-element">
+        This element has z-index: 1000<br>
+        The dropdown should appear ABOVE this element
+    </div>
+    
+    <script>
+        function toggleDropdown() {
+            const dropdown = document.getElementById('testDropdown');
+            dropdown.classList.toggle('show');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.model-selector-wrapper')) {
+                document.getElementById('testDropdown').classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Marked Array Fix Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <h2>Testing Marked.js Array Handling</h2>
+    <div id="test-results"></div>
+    
+    <script>
+        function testMarkedArrayHandling() {
+            const results = document.getElementById('test-results');
+            
+            // Test cases
+            const testCases = [
+                {
+                    name: "String input",
+                    input: "This is a **bold** text",
+                    expected: "success"
+                },
+                {
+                    name: "Array input (should be fixed)",
+                    input: ["This is line 1", "This is **bold** line 2"],
+                    expected: "success_after_fix"
+                },
+                {
+                    name: "Number input",
+                    input: 12345,
+                    expected: "success_after_fix"
+                },
+                {
+                    name: "Object input",
+                    input: {text: "hello"},
+                    expected: "success_after_fix"
+                }
+            ];
+            
+            testCases.forEach((testCase, index) => {
+                const resultDiv = document.createElement('div');
+                resultDiv.style.cssText = 'margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;';
+                
+                try {
+                    // Apply the same fix we implemented
+                    let contentString = testCase.input;
+                    if (Array.isArray(contentString)) {
+                        contentString = contentString.join('\n');
+                    } else if (typeof contentString !== 'string') {
+                        contentString = String(contentString);
+                    }
+                    
+                    const result = marked.parse(contentString);
+                    
+                    resultDiv.innerHTML = `
+                        <h4>✅ ${testCase.name}</h4>
+                        <p><strong>Input:</strong> ${JSON.stringify(testCase.input)}</p>
+                        <p><strong>Converted:</strong> ${JSON.stringify(contentString)}</p>
+                        <p><strong>Result:</strong></p>
+                        <div style="background: #f5f5f5; padding: 10px; border-radius: 3px;">${result}</div>
+                    `;
+                    resultDiv.style.borderColor = '#28a745';
+                    
+                } catch (error) {
+                    resultDiv.innerHTML = `
+                        <h4>❌ ${testCase.name}</h4>
+                        <p><strong>Input:</strong> ${JSON.stringify(testCase.input)}</p>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                    `;
+                    resultDiv.style.borderColor = '#dc3545';
+                }
+                
+                results.appendChild(resultDiv);
+            });
+        }
+        
+        // Run tests when page loads
+        document.addEventListener('DOMContentLoaded', testMarkedArrayHandling);
+    </script>
+</body>
+</html>

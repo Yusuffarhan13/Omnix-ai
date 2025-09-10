@@ -17,9 +17,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d1462a'%3E%3Cpath d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E">
-    
     <style>
         /* Reset and Base Styles */
         * {
@@ -92,36 +89,65 @@
             font-weight: 600;
             text-decoration: none;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             position: relative;
             overflow: hidden;
+            letter-spacing: 0.025em;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
 
         .btn-primary {
             background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
             color: #ffffff;
-            box-shadow: 0 4px 20px rgba(209, 70, 42, 0.3);
+            box-shadow: 0 4px 20px rgba(209, 70, 42, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(209, 70, 42, 0.4);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 40px rgba(209, 70, 42, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
             background: linear-gradient(135deg, #ff4d2d 0%, #d1462a 100%);
         }
 
+        .btn-primary:active {
+            transform: translateY(-1px) scale(1.01);
+            box-shadow: 0 6px 25px rgba(209, 70, 42, 0.4);
+        }
+
         .btn-secondary {
-            background: transparent;
+            background: rgba(209, 70, 42, 0.05);
             color: #d1462a;
-            border: 2px solid #d1462a;
+            border: 2px solid rgba(209, 70, 42, 0.3);
+            backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            background: #d1462a;
+            background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
             color: #ffffff;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(209, 70, 42, 0.3);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 40px rgba(209, 70, 42, 0.4);
+            border-color: #d1462a;
+        }
+
+        .btn-secondary:active {
+            transform: translateY(-1px) scale(1.01);
         }
 
         .btn-large {
@@ -139,16 +165,34 @@
             position: fixed;
             top: 0;
             width: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(25px) saturate(1.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             z-index: 1000;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            -webkit-backdrop-filter: blur(25px) saturate(1.5);
+        }
+
+        .navbar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(209, 70, 42, 0.5), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
         .navbar.scrolled {
             background: rgba(0, 0, 0, 0.95);
             border-bottom: 1px solid rgba(209, 70, 42, 0.3);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .navbar.scrolled::before {
+            opacity: 1;
         }
 
         .nav-container {
@@ -168,16 +212,21 @@
             text-decoration: none;
         }
 
-        .brand-icon {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
+        .brand-logo {
+            width: 48px;
+            height: 48px;
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ffffff;
             transition: transform 0.3s ease;
+        }
+
+        .brand-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
         }
 
         .brand-text {
@@ -403,13 +452,27 @@
 
         .product-card {
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
+            backdrop-filter: blur(25px) saturate(1.2);
+            -webkit-backdrop-filter: blur(25px) saturate(1.2);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
             padding: 40px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             position: relative;
             overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .product-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
         .product-card::before {
@@ -428,9 +491,14 @@
         }
 
         .product-card:hover {
-            transform: translateY(-8px);
-            border-color: rgba(209, 70, 42, 0.3);
-            box-shadow: 0 20px 40px rgba(209, 70, 42, 0.2);
+            transform: translateY(-12px) scale(1.02);
+            border-color: rgba(209, 70, 42, 0.4);
+            box-shadow: 0 25px 60px rgba(209, 70, 42, 0.25), 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .product-card:hover::after {
+            opacity: 1;
         }
 
         .product-header {
@@ -439,23 +507,23 @@
             margin-bottom: 24px;
         }
 
-        .product-icon {
-            width: 48px;
-            height: 48px;
+        .product-logo {
+            width: 64px;
+            height: 64px;
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-right: 16px;
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px;
         }
 
-        .apola-icon {
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-        }
-
-        .omnix-icon {
-            background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
+        .product-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
         }
 
         .product-title {
@@ -489,6 +557,61 @@
         .feature svg {
             color: #d1462a;
             flex-shrink: 0;
+        }
+
+        .social-proof {
+            margin-bottom: 32px;
+            padding: 20px;
+            background: rgba(209, 70, 42, 0.1);
+            border: 1px solid rgba(209, 70, 42, 0.2);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .proof-stats {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #d1462a;
+            background: linear-gradient(135deg, #d1462a 0%, #ff6b4a 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #cccccc;
+            font-weight: 500;
+        }
+
+        .stat:last-child {
+            flex-direction: row;
+            gap: 6px;
+        }
+
+        .stat:last-child svg {
+            color: #fbbf24;
+            margin-top: 2px;
+        }
+
+        .stat-divider {
+            width: 1px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .model-variants {
@@ -546,389 +669,6 @@
             margin: 0;
         }
 
-        /* Social Proof */
-        .social-proof {
-            margin-bottom: 32px;
-            padding: 20px;
-            background: rgba(209, 70, 42, 0.1);
-            border: 1px solid rgba(209, 70, 42, 0.2);
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-        }
-
-        .proof-stats {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-        }
-
-        .stat {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .stat-number {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #d1462a;
-            background: linear-gradient(135deg, #d1462a 0%, #ff6b4a 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .stat-label {
-            font-size: 0.85rem;
-            color: #cccccc;
-            font-weight: 500;
-        }
-
-        .stat:last-child {
-            flex-direction: row;
-            gap: 6px;
-        }
-
-        .stat:last-child svg {
-            color: #fbbf24;
-            margin-top: 2px;
-        }
-
-        .stat-divider {
-            width: 1px;
-            height: 30px;
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Testimonials Section */
-        .testimonials {
-            padding: 120px 0;
-            background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
-        }
-
-        .testimonials-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 30px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .testimonial-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 32px;
-            transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .testimonial-card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(209, 70, 42, 0.3);
-            box-shadow: 0 10px 30px rgba(209, 70, 42, 0.15);
-        }
-
-        .stars {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 16px;
-            color: #fbbf24;
-        }
-
-        .testimonial-text {
-            color: #cccccc;
-            font-size: 1.1rem;
-            line-height: 1.6;
-            margin-bottom: 24px;
-            font-style: italic;
-        }
-
-        .testimonial-author {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .author-avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            font-weight: 600;
-        }
-
-        .author-name {
-            font-weight: 600;
-            color: #ffffff;
-            display: block;
-            margin-bottom: 2px;
-        }
-
-        .author-role {
-            color: #999999;
-            font-size: 0.9rem;
-        }
-
-        /* Features Comparison Section */
-        .features-comparison {
-            padding: 120px 0;
-            background: #000000;
-        }
-
-        .comparison-table {
-            max-width: 800px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            overflow: hidden;
-        }
-
-        .comparison-header {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            background: rgba(209, 70, 42, 0.1);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .comparison-header h3 {
-            padding: 20px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #ffffff;
-            text-align: center;
-        }
-
-        .feature-column h3 {
-            text-align: left !important;
-        }
-
-        .comparison-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            transition: background 0.3s ease;
-        }
-
-        .comparison-row:hover {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .feature-name {
-            padding: 20px;
-            color: #ffffff;
-            font-weight: 500;
-        }
-
-        .traditional-value,
-        .anexodos-value {
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .traditional-value svg {
-            color: #ef4444;
-        }
-
-        .anexodos-value svg {
-            color: #10b981;
-        }
-
-        /* Stats Section */
-        .stats {
-            padding: 80px 0;
-            background: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 40px;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .stat-item {
-            text-align: center;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .stat-icon {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 16px;
-            color: #ffffff;
-        }
-
-        .stat-number {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: #d1462a;
-            background: linear-gradient(135deg, #d1462a 0%, #ff6b4a 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .stat-label {
-            color: #cccccc;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-
-        /* FAQ Section */
-        .faq {
-            padding: 120px 0;
-            background: linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
-        }
-
-        .faq-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .faq-item {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .faq-item:hover {
-            border-color: rgba(209, 70, 42, 0.3);
-        }
-
-        .faq-question {
-            padding: 24px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: #ffffff;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .faq-question:hover {
-            color: #d1462a;
-        }
-
-        .faq-question svg {
-            transition: transform 0.3s ease;
-            color: #d1462a;
-        }
-
-        .faq-question.active svg {
-            transform: rotate(180deg);
-        }
-
-        .faq-answer {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-
-        .faq-answer.active {
-            max-height: 200px;
-        }
-
-        .faq-answer p {
-            padding: 0 24px 24px;
-            color: #cccccc;
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        /* CTA Section */
-        .cta-section {
-            padding: 120px 0;
-            background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .cta-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(ellipse at center, rgba(209, 70, 42, 0.1) 0%, transparent 70%);
-        }
-
-        .cta-content {
-            text-align: center;
-            position: relative;
-            z-index: 2;
-        }
-
-        .cta-title {
-            font-size: clamp(2.5rem, 5vw, 3.5rem);
-            font-weight: 700;
-            margin-bottom: 20px;
-            line-height: 1.2;
-        }
-
-        .cta-subtitle {
-            font-size: 1.25rem;
-            color: #cccccc;
-            margin-bottom: 40px;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .cta-buttons {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 40px;
-        }
-
-        .cta-features {
-            display: flex;
-            gap: 32px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .cta-feature {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #cccccc;
-            font-size: 0.9rem;
-        }
-
-        .cta-feature svg {
-            color: #10b981;
-        }
-
         /* About Section */
         .about {
             padding: 120px 0;
@@ -972,8 +712,6 @@
             padding: 32px;
             text-align: center;
             transition: all 0.3s ease;
-            opacity: 0;
-            transform: translateY(30px);
         }
 
         .pillar:hover {
@@ -1026,6 +764,19 @@
             margin-bottom: 20px;
         }
 
+        .footer-logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+        }
+
+        .footer-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
         .footer-tagline {
             color: #cccccc;
             margin-bottom: 32px;
@@ -1054,49 +805,21 @@
             color: #ff4d2d;
         }
 
-        .footer-bottom {
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 20px;
-            text-align: center;
+        .logo-loading {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #d1462a 0%, #ff4d2d 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            animation: pulse 2s infinite;
         }
 
-        .copyright {
-            color: #888888;
-            font-size: 0.9rem;
-        }
-
-        /* Animations */
-        [data-aos="fade-up"] {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: all 0.6s ease;
-        }
-
-        [data-aos="fade-up"].aos-animate {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        [data-aos="fade-right"] {
-            opacity: 0;
-            transform: translateX(-30px);
-            transition: all 0.6s ease;
-        }
-
-        [data-aos="fade-right"].aos-animate {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        [data-aos="fade-left"] {
-            opacity: 0;
-            transform: translateX(30px);
-            transition: all 0.6s ease;
-        }
-
-        [data-aos="fade-left"].aos-animate {
-            opacity: 1;
-            transform: translateX(0);
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* Responsive Design */
@@ -1187,32 +910,6 @@
                 margin-bottom: 30px;
             }
         }
-
-        /* Performance Optimizations */
-        .product-card,
-        .pillar,
-        .btn {
-            will-change: transform;
-        }
-
-        /* Reduced motion preferences */
-        @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-            
-            .floating-orb {
-                animation: none;
-            }
-            
-            .scroll-indicator {
-                animation: none;
-            }
-        }
     </style>
 </head>
 <body>
@@ -1220,11 +917,13 @@
     <nav class="navbar" id="navbar">
         <div class="nav-container">
             <div class="nav-brand">
-                <div class="brand-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9.5 2C13.0899 2 16 4.91015 16 8.5C16 12.0899 13.0899 15 9.5 15C5.91015 15 3 12.0899 3 8.5C3 4.91015 5.91015 2 9.5 2Z" fill="currentColor"/>
-                        <path d="M10.5 12H20.5C21.3284 12 22 12.6716 22 13.5V20.5C22 21.3284 21.3284 22 20.5 22H10.5C9.67157 22 9 21.3284 9 20.5V13.5C9 12.6716 9.67157 12 10.5 12Z" fill="currentColor"/>
-                    </svg>
+                <div class="brand-logo" id="nav-logo">
+                    <div class="logo-loading">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9.5 2C13.0899 2 16 4.91015 16 8.5C16 12.0899 13.0899 15 9.5 15C5.91015 15 3 12.0899 3 8.5C3 4.91015 5.91015 2 9.5 2Z" fill="currentColor"/>
+                            <path d="M10.5 12H20.5C21.3284 12 22 12.6716 22 13.5V20.5C22 21.3284 21.3284 22 20.5 22H10.5C9.67157 22 9 21.3284 9 20.5V13.5C9 12.6716 9.67157 12 10.5 12Z" fill="currentColor"/>
+                        </svg>
+                    </div>
                 </div>
                 <span class="brand-text">Anéxodos AI</span>
             </div>
@@ -1298,13 +997,15 @@
             
             <div class="products-grid">
                 <!-- Apola AI Card -->
-                <div class="product-card" data-aos="fade-right">
+                <div class="product-card">
                     <div class="product-header">
-                        <div class="product-icon apola-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                            </svg>
+                        <div class="product-logo" id="apola-logo">
+                            <div class="logo-loading">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                                </svg>
+                            </div>
                         </div>
                         <h3 class="product-title">Apola AI</h3>
                     </div>
@@ -1372,12 +1073,14 @@
                 </div>
                 
                 <!-- Omnix AI Card -->
-                <div class="product-card" data-aos="fade-left">
+                <div class="product-card">
                     <div class="product-header">
-                        <div class="product-icon omnix-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                            </svg>
+                        <div class="product-logo" id="omnix-logo">
+                            <div class="logo-loading">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                                </svg>
+                            </div>
                         </div>
                         <h3 class="product-title">Omnix AI</h3>
                     </div>
@@ -1454,272 +1157,6 @@
         </div>
     </section>
 
-
-    <!-- Features Comparison Section -->
-    <section class="features-comparison" id="features">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">
-                    Why Choose <span class="gradient-text">Anéxodos AI</span>
-                </h2>
-                <p class="section-subtitle">
-                    Compare our AI solutions with traditional learning and productivity tools
-                </p>
-            </div>
-            
-            <div class="comparison-table">
-                <div class="comparison-header">
-                    <div class="feature-column">
-                        <h3>Features</h3>
-                    </div>
-                    <div class="traditional-column">
-                        <h3>Traditional Tools</h3>
-                    </div>
-                    <div class="anexodos-column">
-                        <h3>Anéxodos AI</h3>
-                    </div>
-                </div>
-                
-                <div class="comparison-row" data-aos="fade-up">
-                    <div class="feature-name">Personalized Learning</div>
-                    <div class="traditional-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </div>
-                    <div class="anexodos-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </div>
-                </div>
-                
-                <div class="comparison-row" data-aos="fade-up" data-aos-delay="100">
-                    <div class="feature-name">Multi-language Support</div>
-                    <div class="traditional-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </div>
-                    <div class="anexodos-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </div>
-                </div>
-                
-                <div class="comparison-row" data-aos="fade-up" data-aos-delay="200">
-                    <div class="feature-name">Voice Interaction</div>
-                    <div class="traditional-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </div>
-                    <div class="anexodos-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </div>
-                </div>
-                
-                <div class="comparison-row" data-aos="fade-up" data-aos-delay="300">
-                    <div class="feature-name">Browser Automation</div>
-                    <div class="traditional-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </div>
-                    <div class="anexodos-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </div>
-                </div>
-                
-                <div class="comparison-row" data-aos="fade-up" data-aos-delay="400">
-                    <div class="feature-name">Real-time Adaptation</div>
-                    <div class="traditional-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </div>
-                    <div class="anexodos-value">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Stats Section -->
-    <section class="stats" id="stats">
-        <div class="container">
-            <div class="stats-grid">
-                <div class="stat-item" data-aos="fade-up" data-aos-delay="100">
-                    <div class="stat-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                    </div>
-                    <div class="stat-number">500+</div>
-                    <div class="stat-label">Active Students</div>
-                </div>
-                
-                <div class="stat-item" data-aos="fade-up" data-aos-delay="200">
-                    <div class="stat-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                        </svg>
-                    </div>
-                    <div class="stat-number">98%</div>
-                    <div class="stat-label">Satisfaction Rate</div>
-                </div>
-                
-                <div class="stat-item" data-aos="fade-up" data-aos-delay="300">
-                    <div class="stat-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M2 12h20"/>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
-                    </div>
-                    <div class="stat-number">24/7</div>
-                    <div class="stat-label">AI Availability</div>
-                </div>
-                
-                <div class="stat-item" data-aos="fade-up" data-aos-delay="400">
-                    <div class="stat-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-                        </svg>
-                    </div>
-                    <div class="stat-number">3s</div>
-                    <div class="stat-label">Response Time</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section class="faq" id="faq">
-        <div class="container">
-            <div class="section-header">
-                <h2 class="section-title">
-                    Frequently Asked <span class="gradient-text">Questions</span>
-                </h2>
-                <p class="section-subtitle">
-                    Everything you need to know about our AI solutions
-                </p>
-            </div>
-            
-            <div class="faq-container">
-                
-                <div class="faq-item" data-aos="fade-up" data-aos-delay="200">
-                    <div class="faq-question" onclick="toggleFAQ(this)">
-                        <span>What makes Omnix AI different from other AI assistants?</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </div>
-                    <div class="faq-answer">
-                        <p>Omnix AI combines browser automation, voice-to-voice conversations, and advanced reasoning in one platform. With both Flash (for quick tasks) and Maxima (for deep thinking) models, it adapts to your specific needs while maintaining conversation context across different modes.</p>
-                    </div>
-                </div>
-                
-                <div class="faq-item" data-aos="fade-up" data-aos-delay="300">
-                    <div class="faq-question" onclick="toggleFAQ(this)">
-                        <span>Is my data secure with Anéxodos AI?</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </div>
-                    <div class="faq-answer">
-                        <p>Yes, we prioritize data security and privacy. All interactions are encrypted, and we follow international data protection standards. Your personal information and learning data are never shared with third parties without your explicit consent.</p>
-                    </div>
-                </div>
-                
-                <div class="faq-item" data-aos="fade-up" data-aos-delay="400">
-                    <div class="faq-question" onclick="toggleFAQ(this)">
-                        <span>Can I use these AI tools offline?</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </div>
-                    <div class="faq-answer">
-                        <p>Currently, our AI solutions require an internet connection to access the latest models and real-time capabilities. However, we're working on offline modes for basic features that will be available in future updates.</p>
-                    </div>
-                </div>
-                
-                <div class="faq-item" data-aos="fade-up" data-aos-delay="500">
-                    <div class="faq-question" onclick="toggleFAQ(this)">
-                        <span>How can I get started with Anéxodos AI?</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </div>
-                    <div class="faq-answer">
-                        <p>Getting started is easy! For Apola AI, visit apolaai.com and create your student account. For Omnix AI, click the "Get Started" button above to access the platform. Both offer intuitive interfaces and guided onboarding to help you get the most out of our AI tools.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="cta-section">
-        <div class="container">
-            <div class="cta-content" data-aos="fade-up">
-                <h2 class="cta-title">
-                    Ready to Transform Your <span class="gradient-text">AI Experience</span>?
-                </h2>
-                <p class="cta-subtitle">
-                    Join thousands of students and professionals already using Anéxodos AI to enhance their learning and productivity.
-                </p>
-                <div class="cta-buttons">
-                    <button class="btn btn-primary btn-large" onclick="handleGetStarted()">
-                        <span>Start with Omnix AI</span>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                    <button class="btn btn-secondary btn-large" onclick="handleApolaAI()">
-                        Try Apola AI Free
-                    </button>
-                </div>
-                <div class="cta-features">
-                    <div class="cta-feature">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>No credit card required</span>
-                    </div>
-                    <div class="cta-feature">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>Instant access</span>
-                    </div>
-                    <div class="cta-feature">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span>24/7 support</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- About Section -->
     <section class="about" id="about">
         <div class="container">
@@ -1743,10 +1180,10 @@
                 </div>
                 
                 <div class="about-pillars">
-                    <div class="pillar" data-aos="fade-up" data-aos-delay="100">
+                    <div class="pillar">
                         <div class="pillar-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10"></circle>
+                                <circle cx="12" cy="12" r="10"/>
                                 <path d="M2 12h20"/>
                                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                             </svg>
@@ -1755,7 +1192,7 @@
                         <p class="pillar-description">Building AI solutions for a worldwide audience</p>
                     </div>
                     
-                    <div class="pillar" data-aos="fade-up" data-aos-delay="200">
+                    <div class="pillar">
                         <div class="pillar-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M9.5 2A2.5 2.5 0 0 0 7 4.5v15A2.5 2.5 0 0 0 9.5 22h5a2.5 2.5 0 0 0 2.5-2.5v-15A2.5 2.5 0 0 0 14.5 2h-5z"/>
@@ -1765,7 +1202,7 @@
                         <p class="pillar-description">Pushing the boundaries of AI technology</p>
                     </div>
                     
-                    <div class="pillar" data-aos="fade-up" data-aos-delay="300">
+                    <div class="pillar">
                         <div class="pillar-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polygon points="12 2 15.09 8.26 22 9 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9 8.91 8.26 12 2"/>
@@ -1784,11 +1221,13 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
-                    <div class="brand-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9.5 2C13.0899 2 16 4.91015 16 8.5C16 12.0899 13.0899 15 9.5 15C5.91015 15 3 12.0899 3 8.5C3 4.91015 5.91015 2 9.5 2Z" fill="currentColor"/>
-                            <path d="M10.5 12H20.5C21.3284 12 22 12.6716 22 13.5V20.5C22 21.3284 21.3284 22 20.5 22H10.5C9.67157 22 9 21.3284 9 20.5V13.5C9 12.6716 9.67157 12 10.5 12Z" fill="currentColor"/>
-                        </svg>
+                    <div class="footer-logo" id="footer-logo">
+                        <div class="logo-loading">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9.5 2C13.0899 2 16 4.91015 16 8.5C16 12.0899 13.0899 15 9.5 15C5.91015 15 3 12.0899 3 8.5C3 4.91015 5.91015 2 9.5 2Z" fill="currentColor"/>
+                                <path d="M10.5 12H20.5C21.3284 12 22 12.6716 22 13.5V20.5C22 21.3284 21.3284 22 20.5 22H10.5C9.67157 22 9 21.3284 9 20.5V13.5C9 12.6716 9.67157 12 10.5 12Z" fill="currentColor"/>
+                            </svg>
+                        </div>
                     </div>
                     <span class="brand-text">Anéxodos AI</span>
                 </div>
@@ -1804,18 +1243,64 @@
                     </a>
                 </div>
             </div>
-            
         </div>
     </footer>
 
     <script>
-        // Landing Page JavaScript
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeNavigation();
-            initializeScrollEffects();
-            initializeAnimations();
-            initializeIntersectionObserver();
-        });
+        // Global state for logos
+        let logosData = null;
+
+        // Load logos from API
+        async function loadLogos() {
+            try {
+                const response = await fetch('/api/logos');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    logosData = data;
+                    updateLogosInPage();
+                } else {
+                    console.warn('Failed to load logos from GCS:', data.message);
+                }
+            } catch (error) {
+                console.error('Error loading logos:', error);
+            }
+        }
+
+        // Update all logo elements in the page
+        function updateLogosInPage() {
+            if (!logosData) return;
+
+            // Update navigation logo (Anéxodos AI)
+            updateLogo('nav-logo', logosData.anexodos_logo);
+            
+            // Update footer logo (Anéxodos AI)
+            updateLogo('footer-logo', logosData.anexodos_logo);
+            
+            // Update Apola AI logo (use Anéxodos for now, could be different)
+            updateLogo('apola-logo', logosData.anexodos_logo);
+            
+            // Update Omnix AI logo
+            updateLogo('omnix-logo', logosData.omnix_logo);
+        }
+
+        // Update a specific logo element
+        function updateLogo(elementId, logoData) {
+            const element = document.getElementById(elementId);
+            if (!element || !logoData) return;
+
+            const img = document.createElement('img');
+            img.src = logoData;
+            img.alt = 'Logo';
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = '8px';
+            
+            // Replace the loading content with the actual logo
+            element.innerHTML = '';
+            element.appendChild(img);
+        }
 
         // Navigation functionality
         function initializeNavigation() {
@@ -1868,7 +1353,7 @@
                     const targetElement = document.querySelector(targetId);
                     
                     if (targetElement) {
-                        const offsetTop = targetElement.offsetTop - 70; // Account for fixed navbar
+                        const offsetTop = targetElement.offsetTop - 70;
                         window.scrollTo({
                             top: offsetTop,
                             behavior: 'smooth'
@@ -1890,62 +1375,12 @@
             });
         }
 
-        // Initialize animations
-        function initializeAnimations() {
-            // Add entrance animations to elements
-            const animatedElements = document.querySelectorAll('[data-aos]');
-            animatedElements.forEach(element => {
-                element.style.visibility = 'hidden';
-            });
-
-            // Add enhanced interactions
-            initializeEnhancedInteractions();
-        }
-
-        // Intersection Observer for scroll animations
-        function initializeIntersectionObserver() {
-            const observerOptions = {
-                threshold: 0.1,
-                rootMargin: '0px 0px -50px 0px'
-            };
-
-            const observer = new IntersectionObserver(function(entries) {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.visibility = 'visible';
-                        entry.target.classList.add('aos-animate');
-                        
-                        // Add staggered animation delays for multiple elements
-                        const siblings = entry.target.parentElement.children;
-                        if (siblings.length > 1) {
-                            Array.from(siblings).forEach((sibling, index) => {
-                                if (sibling.hasAttribute('data-aos')) {
-                                    setTimeout(() => {
-                                        sibling.style.visibility = 'visible';
-                                        sibling.classList.add('aos-animate');
-                                    }, index * 100);
-                                }
-                            });
-                        }
-                    }
-                });
-            }, observerOptions);
-
-            // Observe all elements with data-aos attributes
-            const animatedElements = document.querySelectorAll('[data-aos]');
-            animatedElements.forEach(element => {
-                observer.observe(element);
-            });
-        }
-
         // Button click handlers
         function handleGetStarted() {
-            // Redirect to Omnix AI app
             window.location.href = '/Omnix';
         }
 
         function handleApolaAI() {
-            // Open Apola AI in new tab
             window.open('https://apolaai.com', '_blank');
         }
 
@@ -1976,63 +1411,40 @@
                 });
             });
 
-            // Brand icon click animation
-            const logo = document.querySelector('.brand-icon');
-            if (logo) {
+            // Brand logo click animation
+            const logos = document.querySelectorAll('.brand-logo, .footer-logo');
+            logos.forEach(logo => {
                 logo.addEventListener('click', function() {
                     this.style.transform = 'scale(1.1) rotate(360deg)';
                     setTimeout(() => {
                         this.style.transform = 'scale(1) rotate(0deg)';
                     }, 300);
                 });
-            }
-        }
-
-        // Performance optimization: Debounce scroll events
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
+            });
         }
 
         // Handle resize events
-        window.addEventListener('resize', debounce(function() {
-            // Recalculate any position-dependent animations
+        window.addEventListener('resize', function() {
             const navMenu = document.getElementById('nav-menu');
             if (window.innerWidth > 768 && navMenu.classList.contains('active')) {
                 navMenu.classList.remove('active');
                 document.getElementById('nav-toggle').classList.remove('active');
             }
-        }, 100));
+        });
 
-        // FAQ Toggle Functionality
-        function toggleFAQ(element) {
-            const faqItem = element.parentElement;
-            const faqAnswer = faqItem.querySelector('.faq-answer');
-            const isActive = element.classList.contains('active');
-
-            // Close all other FAQ items
-            document.querySelectorAll('.faq-question').forEach(q => {
-                q.classList.remove('active');
-                q.parentElement.querySelector('.faq-answer').classList.remove('active');
-            });
-
-            // Toggle current item
-            if (!isActive) {
-                element.classList.add('active');
-                faqAnswer.classList.add('active');
-            }
-        }
-
-        // Initialize all components when DOM is ready
+        // Initialize everything when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 Anéxodos AI Landing Page Loaded Successfully');
+            console.log('🚀 Anéxodos AI Landing Page Loading...');
+            
+            // Initialize all components
+            initializeNavigation();
+            initializeScrollEffects();
+            initializeEnhancedInteractions();
+            
+            // Load logos from GCS
+            loadLogos();
+            
+            console.log('✅ Landing Page Initialized Successfully');
         });
     </script>
 </body>

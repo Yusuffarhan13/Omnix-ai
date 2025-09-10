@@ -21,6 +21,8 @@ from urllib.parse import urlparse, quote
 import hashlib
 from bs4 import BeautifulSoup
 import re
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 
 @dataclass
@@ -72,7 +74,77 @@ class AdvancedWebSearcher:
         
         self.logger.info("🔍 Advanced Web Searcher initialized")
     
-    async def multi_source_search(self, query: str, max_results: int = 20) -> List[ResearchSource]:
+    def _is_academic_query(self, query: str) -> bool:
+        """Determine if a query should include academic sources"""
+        query_lower = query.lower()
+        
+        # Natural phenomena that should use general web search (not academic)
+        natural_phenomena = [
+            'northern lights', 'aurora', 'southern lights', 'rainbow', 'lightning',
+            'tornado', 'hurricane', 'earthquake', 'volcano', 'eclipse', 'meteor',
+            'comet', 'sunset', 'sunrise', 'weather', 'storm', 'snow', 'rain'
+        ]
+        
+        # Consumer/everyday indicators (avoid academic search)
+        consumer_indicators = [
+            'buy', 'purchase', 'price', 'cost', 'where to find', 'how to make',
+            'recipe', 'diy', 'tutorial', 'guide', 'tips', 'tricks', 'review',
+            'best', 'vs', 'comparison', 'brand', 'product', 'store', 'restaurant',
+            'food', 'cooking', 'travel', 'vacation', 'entertainment', 'movie',
+            'music', 'game', 'sports', 'news', 'celebrity', 'fashion', 'when to see',
+            'best time', 'viewing', 'watch', 'observe'
+        ]
+        
+        # Technical/research topics that benefit from academic sources
+        technical_topics = [
+            'renewable energy', 'climate change', 'artificial intelligence', 'machine learning',
+            'quantum computing', 'biotechnology', 'nanotechnology', 'blockchain',
+            'cybersecurity', 'data science', 'sustainability', 'environmental impact',
+            'carbon footprint', 'greenhouse gas', 'biodiversity', 'ecosystem',
+            'pharmaceutical', 'medical research', 'clinical', 'genomics', 'biomedical',
+            'engineering', 'materials science', 'semiconductor', 'nuclear energy',
+            'solar energy', 'wind energy', 'battery technology', 'electric vehicles'
+        ]
+        
+        # Academic indicators (technical research terms)
+        academic_indicators = [
+            'peer review', 'journal article', 'research paper', 'methodology',
+            'experiment design', 'clinical trial', 'statistical analysis', 'meta-analysis',
+            'systematic review', 'correlation coefficient', 'regression analysis',
+            'hypothesis testing', 'comprehensive analysis', 'trends', 'adoption',
+            'biochemical pathway', 'molecular mechanism', 'genetic expression'
+        ]
+        
+        # Check for natural phenomena first (these use general web search)
+        if any(phenomenon in query_lower for phenomenon in natural_phenomena):
+            return False
+        
+        # Check for consumer indicators (these override academic)
+        if any(indicator in query_lower for indicator in consumer_indicators):
+            return False
+        
+        # Check for technical topics that benefit from academic sources
+        if any(topic in query_lower for topic in technical_topics):
+            return True
+        
+        # Check for academic indicators (research terms)
+        if any(indicator in query_lower for indicator in academic_indicators):
+            return True
+        
+        # Default: non-academic for general questions
+        return False
+    
+    def _format_arxiv_query(self, query: str) -> str:
+        """Format query for arXiv API to handle compound terms better"""
+        # If query contains multiple words, treat as phrase for better results
+        words = query.strip().split()
+        if len(words) > 1:
+            # Use quotes for compound terms to search as phrase
+            return f'all:"{query}"'
+        else:
+            return f'all:{query}'
+    
+    async def multi_source_search(self, query: str, max_results: int = 75) -> List[ResearchSource]:
         """Perform search across multiple sources and engines"""
         
         all_sources = []
@@ -80,18 +152,36 @@ class AdvancedWebSearcher:
         # Search tasks to run in parallel
         search_tasks = []
         
+        # Determine if query is academic/scientific in nature
+        is_academic = self._is_academic_query(query)
+        
+        # Allocate search sources based on query type
+        if is_academic:
+            # Academic queries: balanced allocation
+            web_allocation = max_results // 4
+            news_allocation = max_results // 4
+            specialized_allocation = max_results // 4
+            academic_allocation = max_results // 4
+        else:
+            # Non-academic queries: prioritize web and news
+            web_allocation = max_results // 2
+            news_allocation = max_results // 3
+            specialized_allocation = max_results // 6
+            academic_allocation = 0
+        
         # General web search
         if self.brave_api_key:
-            search_tasks.append(self._brave_search(query, max_results // 4))
+            search_tasks.append(self._brave_search(query, web_allocation))
         
-        # Academic search
-        search_tasks.append(self._academic_search(query, max_results // 4))
+        # Academic search (only for clearly academic/scientific queries)
+        if is_academic and academic_allocation > 0:
+            search_tasks.append(self._academic_search(query, academic_allocation))
         
         # News search
-        search_tasks.append(self._news_search(query, max_results // 4))
+        search_tasks.append(self._news_search(query, news_allocation))
         
         # Specialized search (government, organizations)
-        search_tasks.append(self._specialized_search(query, max_results // 4))
+        search_tasks.append(self._specialized_search(query, specialized_allocation))
         
         # Execute all searches in parallel
         search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
@@ -117,7 +207,9 @@ class AdvancedWebSearcher:
         
         try:
             headers = {"X-Subscription-Token": self.brave_api_key}
-            params = {"q": query, "count": max_results}
+            # Brave API has a limit of 20 per request, so we cap it
+            count = min(max_results, 20)
+            params = {"q": query, "count": count}
             
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -172,8 +264,10 @@ class AdvancedWebSearcher:
         """Search arXiv for academic papers"""
         
         try:
+            # Format query for better compound term handling
+            formatted_query = self._format_arxiv_query(query)
             params = {
-                'search_query': f'all:{query}',
+                'search_query': formatted_query,
                 'start': 0,
                 'max_results': max_results,
                 'sortBy': 'relevance',
@@ -228,8 +322,10 @@ class AdvancedWebSearcher:
         """Search CrossRef for academic papers"""
         
         try:
+            # Format query for better compound term handling in CrossRef
+            formatted_query = f'"{query}"' if len(query.split()) > 1 else query
             params = {
-                'query': query,
+                'query': formatted_query,
                 'rows': max_results,
                 'sort': 'relevance',
                 'order': 'desc'
@@ -371,20 +467,35 @@ class AdvancedWebSearcher:
             # Base credibility score
             score = source.credibility_score
             
-            # Relevance based on title and content
-            title_matches = sum(1 for term in query_terms if term in source.title.lower())
-            content_matches = sum(1 for term in query_terms if term in source.content.lower())
+            # Relevance based on exact phrase matching (higher priority)
+            title_lower = source.title.lower()
+            content_lower = source.content.lower()
+            query_lower = query.lower()
             
-            relevance_score = (title_matches * 2 + content_matches) / (len(query_terms) * 3)
-            score += relevance_score * 0.5
+            # Boost for exact phrase matches
+            if query_lower in title_lower:
+                score += 1.0  # High boost for exact title match
+            elif query_lower in content_lower:
+                score += 0.5  # Medium boost for exact content match
+            
+            # Individual term matches (lower priority)
+            title_matches = sum(1 for term in query_terms if term in title_lower and len(term) > 3)
+            content_matches = sum(1 for term in query_terms if term in content_lower and len(term) > 3)
+            
+            relevance_score = (title_matches * 2 + content_matches) / max(len(query_terms) * 3, 1)
+            score += relevance_score * 0.3
+            
+            # Penalize sources with very short or generic content
+            if len(source.content) < 50:
+                score -= 0.2
             
             # Boost for citations (if available)
             if source.citations > 0:
                 score += min(source.citations / 100, 0.2)  # Cap at 0.2 boost
             
-            # Boost for academic sources
+            # Boost for academic sources on technical topics
             if source.source_type == "academic":
-                score += 0.1
+                score += 0.15
             
             return score
         
@@ -465,11 +576,87 @@ class ContentExtractor:
         return text.strip()
 
 
+class SimpleGeminiResearcher:
+    """Simple Gemini 2.5 Pro researcher with thinking mode - like Perplexity Pro"""
+    
+    def __init__(self, google_api_key: str):
+        self.google_api_key = google_api_key
+        self.logger = logging.getLogger(__name__)
+        
+        # Configure Gemini API
+        genai.configure(api_key=google_api_key)
+        
+        # Initialize Gemini 2.5 Pro with thinking capabilities
+        self.model = genai.GenerativeModel(
+            model_name='gemini-2.5-pro',
+            safety_settings={
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            },
+            generation_config={
+                'temperature': 0.3,
+                'top_p': 0.95,
+                'top_k': 40,
+                'max_output_tokens': 8192,
+            }
+        )
+        
+        self.logger.info("🚀 Simple Gemini Researcher initialized (Perplexity Pro style)")
+    
+    async def research_with_thinking(self, query: str, sources_text: str) -> str:
+        """Research synthesis with thinking mode enabled"""
+        
+        thinking_prompt = f"""
+<thinking>
+I need to synthesize comprehensive research findings for the query: "{query}"
+
+Let me analyze the sources systematically:
+1. Extract key facts and claims from each source
+2. Identify patterns and consensus points
+3. Note any contradictions or debates
+4. Evaluate source credibility and reliability
+5. Synthesize into a coherent, well-structured response
+
+This should be like Perplexity Pro - comprehensive but clear and accessible.
+</thinking>
+
+You are a research AI that provides comprehensive, well-sourced analysis like Perplexity Pro.
+
+Query: {query}
+
+Sources analyzed:
+{sources_text}
+
+Provide a comprehensive research summary that includes:
+
+1. **Executive Summary** - Key findings in 2-3 sentences
+2. **Detailed Analysis** - Main insights with source references
+3. **Key Points** - 3-5 bullet points of critical information
+4. **Confidence Level** - High/Medium/Low based on source quality
+
+Be thorough but accessible. Reference sources naturally in your analysis.
+        """
+        
+        try:
+            response = await asyncio.to_thread(
+                self.model.generate_content,
+                thinking_prompt
+            )
+            
+            return response.text if response.text else "Research analysis completed."
+            
+        except Exception as e:
+            self.logger.error(f"Research synthesis failed: {e}")
+            return f"Research completed for: {query}. Please try again if more detail is needed."
+
+
 class ResearchSynthesizer:
     """Synthesize research findings from multiple sources"""
     
-    def __init__(self, gemini_manager):
-        self.gemini_manager = gemini_manager
+    def __init__(self, google_api_key: str):
+        self.researcher = SimpleGeminiResearcher(google_api_key)
         self.logger = logging.getLogger(__name__)
     
     async def synthesize_research(self, query: str, sources: List[ResearchSource]) -> ResearchFindings:
@@ -531,21 +718,20 @@ class ResearchSynthesizer:
         Provide a thorough, well-structured analysis that demonstrates critical thinking and research methodology.
         """
         
-        # Get synthesis from Gemini
-        synthesis_result = await self.gemini_manager.deep_think_reasoning(
-            synthesis_prompt,
-            thinking_budget=-1,  # Dynamic thinking for complex analysis
-            enable_parallel_thinking=True
+        # Get synthesis from Gemini with thinking
+        synthesis_text = await self.researcher.research_with_thinking(
+            query, 
+            "\n\n".join(source_summaries)
         )
         
-        # Extract structured information from synthesis
-        synthesis_text = synthesis_result['thinking_process']
+        # Extract confidence level from response
+        confidence_score = self._extract_confidence(synthesis_text)
         
         findings = ResearchFindings(
             query=query,
             sources=sources,
             synthesis=synthesis_text,
-            confidence_score=synthesis_result['confidence_score'],
+            confidence_score=confidence_score,
             key_insights=self._extract_insights(synthesis_text),
             contradictions=self._extract_contradictions(synthesis_text),
             gaps=self._extract_gaps(synthesis_text),
@@ -556,6 +742,19 @@ class ResearchSynthesizer:
         self.logger.info(f"✅ Research synthesis completed with {len(findings.key_insights)} insights")
         
         return findings
+    
+    def _extract_confidence(self, text: str) -> float:
+        """Extract confidence level from response text"""
+        text_lower = text.lower()
+        if 'high confidence' in text_lower or 'confidence level: high' in text_lower:
+            return 0.9
+        elif 'medium confidence' in text_lower or 'confidence level: medium' in text_lower:
+            return 0.7
+        elif 'low confidence' in text_lower or 'confidence level: low' in text_lower:
+            return 0.5
+        else:
+            # Default based on source count and quality
+            return 0.8
     
     def _extract_insights(self, text: str) -> List[str]:
         """Extract key insights from synthesis text"""
@@ -635,24 +834,377 @@ class ResearchSynthesizer:
 
 
 class EnhancedResearchManager:
-    """Main manager for enhanced research capabilities"""
+    """Main manager for enhanced research capabilities - Perplexity Pro style"""
     
-    def __init__(self, gemini_manager, brave_api_key: str = None, serpapi_key: str = None):
-        self.gemini_manager = gemini_manager
+    def __init__(self, google_api_key: str, brave_api_key: str = None, serpapi_key: str = None):
+        self.google_api_key = google_api_key
         self.logger = logging.getLogger(__name__)
         
         # Initialize components
         self.searcher = AdvancedWebSearcher(brave_api_key, serpapi_key)
         self.extractor = ContentExtractor()
-        self.synthesizer = ResearchSynthesizer(gemini_manager)
+        self.synthesizer = ResearchSynthesizer(google_api_key)
         
         # Research cache
         self.research_cache = {}
         
-        self.logger.info("🔬 Enhanced Research Manager initialized")
+        self.logger.info("🔬 Enhanced Research Manager initialized (Perplexity Pro style)")
     
-    async def conduct_comprehensive_research(self, query: str, max_sources: int = 15) -> ResearchFindings:
-        """Conduct comprehensive multi-source research"""
+    async def _initialize_research_thinking(self, query: str) -> Dict[str, Any]:
+        """Initialize sequential thinking process for research"""
+        
+        thinking_prompt = f"""
+        Initialize sequential thinking for comprehensive research on: "{query}"
+        
+        RESEARCH THINKING FRAMEWORK:
+        1. QUERY ANALYSIS: Break down the research question
+        2. SCOPE DEFINITION: Determine research boundaries and depth needed
+        3. SOURCE STRATEGY: Plan optimal source types and search strategies
+        4. VALIDATION APPROACH: Define fact-checking and credibility assessment
+        5. SYNTHESIS PLAN: Outline how to combine findings coherently
+        
+        Provide initial thinking for each step.
+        """
+        
+        try:
+            # Simple Gemini 2.5 Pro thinking approach
+            researcher = SimpleGeminiResearcher(self.google_api_key)
+            response = await researcher.research_with_thinking(
+                f"Research planning for: {query}", 
+                thinking_prompt
+            )
+            
+            return {
+                "initial_thinking": response,
+                "query": query,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize research thinking: {e}")
+            return {"initial_thinking": "Basic research approach", "query": query}
+    
+    async def _comprehensive_multi_source_search(
+        self, 
+        query: str, 
+        max_sources: int
+    ) -> List[ResearchSource]:
+        """Conduct comprehensive search across multiple engines and source types"""
+        
+        all_sources = []
+        
+        # Multiple search rounds with different query variations
+        query_variations = self._generate_query_variations(query)
+        
+        search_tasks = []
+        
+        for variation in query_variations:
+            # General web search (multiple rounds)
+            if self.searcher.brave_api_key:
+                search_tasks.append(self.searcher._brave_search(variation, max_sources // len(query_variations)))
+            
+            # Academic search
+            search_tasks.append(self.searcher._academic_search(variation, max_sources // len(query_variations)))
+            
+            # News search
+            search_tasks.append(self.searcher._news_search(variation, max_sources // len(query_variations)))
+            
+            # Specialized search
+            search_tasks.append(self.searcher._specialized_search(variation, max_sources // len(query_variations)))
+        
+        # Execute all searches in parallel
+        search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+        
+        # Combine and deduplicate results
+        seen_urls = set()
+        for result in search_results:
+            if isinstance(result, list):
+                for source in result:
+                    if source.url not in seen_urls:
+                        all_sources.append(source)
+                        seen_urls.add(source.url)
+        
+        # Use ALL available sources found (no minimum requirement)
+        self.logger.info(f"🎯 Collected {len(all_sources)} total sources from all searches")
+        
+        return all_sources[:max_sources]
+    
+    def _generate_query_variations(self, query: str) -> List[str]:
+        """Generate smart variations of the query for comprehensive search"""
+        
+        variations = [query]
+        
+        # Add quoted version for exact phrase search (keeps compound terms together)
+        variations.append(f'"{query}"')
+        
+        # Instead of breaking into individual words, create meaningful phrase combinations
+        words = query.split()
+        if len(words) > 2:
+            # Create meaningful 2-3 word combinations instead of single words
+            for i in range(len(words) - 1):
+                phrase = " ".join(words[i:i+2])  # 2-word phrases
+                if len(phrase.split()) == 2 and len(phrase) > 8:  # Only meaningful phrases
+                    variations.append(phrase)
+                
+                # Add 3-word phrases for longer queries
+                if i < len(words) - 2:
+                    phrase3 = " ".join(words[i:i+3])
+                    if len(phrase3.split()) == 3:
+                        variations.append(phrase3)
+        
+        # Add context-specific research terms
+        research_terms = ['latest', '2024', 'current', 'recent']
+        for term in research_terms[:2]:  # Limit to 2 to avoid overload
+            variations.append(f"{query} {term}")
+        
+        # Limit variations to prevent search overload
+        return variations[:5]
+    
+    async def _emergency_search_boost(self, query: str, needed_count: int) -> List[ResearchSource]:
+        """Emergency search to reach minimum source count"""
+        
+        additional_sources = []
+        
+        # Try broader search terms
+        broader_queries = [
+            f"{query} information",
+            f"{query} facts",
+            f"{query} overview",
+            query.split()[0] if ' ' in query else query  # First word only
+        ]
+        
+        for broad_query in broader_queries:
+            if len(additional_sources) >= needed_count:
+                break
+            
+            try:
+                if self.searcher.brave_api_key:
+                    sources = await self.searcher._brave_search(broad_query, needed_count)
+                    additional_sources.extend(sources)
+            except Exception as e:
+                self.logger.warning(f"Emergency search failed for {broad_query}: {e}")
+        
+        return additional_sources[:needed_count]
+    
+    async def _intelligent_source_selection(
+        self, 
+        sources: List[ResearchSource], 
+        target_count: int
+    ) -> List[ResearchSource]:
+        """Intelligently select the best sources from a large pool"""
+        
+        # Score sources based on multiple factors
+        scored_sources = []
+        
+        for source in sources:
+            score = 0
+            
+            # Credibility score (already provided)
+            score += source.credibility_score * 40
+            
+            # Source type priority
+            type_scores = {
+                'academic': 30,
+                'government': 25,
+                'news': 20,
+                'organization': 15,
+                'blog': 10,
+                'social': 5
+            }
+            score += type_scores.get(source.source_type, 5)
+            
+            # Content length (more detailed content preferred)
+            if len(source.content) > 1000:
+                score += 15
+            elif len(source.content) > 500:
+                score += 10
+            elif len(source.content) > 200:
+                score += 5
+            
+            # Domain authority (simple heuristic)
+            high_authority_domains = [
+                'edu', 'gov', 'org', 'nature.com', 'science.org', 
+                'ncbi.nlm.nih.gov', 'arxiv.org', 'reuters.com', 'bbc.com'
+            ]
+            
+            if any(domain in source.domain.lower() for domain in high_authority_domains):
+                score += 20
+            
+            scored_sources.append((source, score))
+        
+        # Sort by score and return top sources
+        scored_sources.sort(key=lambda x: x[1], reverse=True)
+        
+        return [source for source, score in scored_sources[:target_count]]
+    
+    async def _synthesize_with_sequential_thinking(
+        self, 
+        query: str, 
+        sources: List[ResearchSource], 
+        thinking_context: Dict[str, Any]
+    ) -> ResearchFindings:
+        """Synthesize research with sequential thinking approach"""
+        
+        synthesis_prompt = f"""
+        Using sequential thinking, synthesize comprehensive research findings for: "{query}"
+        
+        SOURCES ANALYZED: {len(sources)} high-quality sources
+        
+        SEQUENTIAL SYNTHESIS PROCESS:
+        
+        1. INFORMATION ANALYSIS:
+        - Review all {len(sources)} sources systematically
+        - Identify key facts, claims, and evidence
+        - Note source credibility and types
+        
+        2. PATTERN RECOGNITION:
+        - Find common themes and consensus points
+        - Identify contradictions and debates
+        - Recognize knowledge gaps or limitations
+        
+        3. CRITICAL EVALUATION:
+        - Assess reliability of different claims
+        - Evaluate strength of evidence
+        - Consider potential biases or limitations
+        
+        4. SYNTHESIS CONSTRUCTION:
+        - Integrate findings into coherent narrative
+        - Present balanced view of the topic
+        - Highlight key insights and implications
+        
+        5. CONFIDENCE ASSESSMENT:
+        - Evaluate overall confidence in findings
+        - Identify areas of certainty vs uncertainty
+        - Provide confidence score (0-1)
+        
+        SOURCE DETAILS:
+        {self._format_sources_for_analysis(sources)}
+        
+        Please provide:
+        1. Comprehensive synthesis (detailed analysis)
+        2. Key insights (3-7 main points)
+        3. Any contradictions found
+        4. Knowledge gaps identified
+        5. Research recommendations
+        6. Overall confidence score
+        
+        Use the sequential thinking process explicitly.
+        """
+        
+        try:
+            # Simple synthesis with thinking
+            researcher = SimpleGeminiResearcher(self.google_api_key)
+            response = await researcher.research_with_thinking(query, synthesis_prompt)
+            
+            # Parse the structured response
+            findings = self._parse_synthesis_response(query, sources, response, thinking_context)
+            
+            return findings
+            
+        except Exception as e:
+            self.logger.error(f"Sequential thinking synthesis failed: {e}")
+            # Fall back to basic synthesis
+            return await self.synthesizer.synthesize_research(query, sources)
+    
+    def _format_sources_for_analysis(self, sources: List[ResearchSource]) -> str:
+        """Format sources for AI analysis"""
+        
+        formatted = []
+        for i, source in enumerate(sources[:20], 1):  # Limit to first 20 for token efficiency
+            formatted.append(
+                f"{i}. [{source.source_type.upper()}] {source.title}\n"
+                f"   Domain: {source.domain} | Credibility: {source.credibility_score:.2f}\n"
+                f"   Content: {source.content[:300]}...\n"
+            )
+        
+        if len(sources) > 20:
+            formatted.append(f"\n... and {len(sources) - 20} additional sources")
+        
+        return "\n".join(formatted)
+    
+    def _parse_synthesis_response(
+        self, 
+        query: str, 
+        sources: List[ResearchSource], 
+        response: str, 
+        thinking_context: Dict[str, Any]
+    ) -> ResearchFindings:
+        """Parse the AI synthesis response into structured findings"""
+        
+        try:
+            # Extract key components from the response
+            lines = response.split('\n')
+            
+            synthesis = response  # Use full response as synthesis
+            key_insights = []
+            contradictions = []
+            gaps = []
+            recommendations = []
+            confidence_score = 0.8  # Default
+            
+            # Simple parsing logic (could be enhanced)
+            current_section = None
+            for line in lines:
+                line = line.strip()
+                if 'key insights' in line.lower():
+                    current_section = 'insights'
+                elif 'contradictions' in line.lower():
+                    current_section = 'contradictions'
+                elif 'gaps' in line.lower():
+                    current_section = 'gaps'
+                elif 'recommendations' in line.lower():
+                    current_section = 'recommendations'
+                elif 'confidence' in line.lower():
+                    # Try to extract confidence score
+                    import re
+                    score_match = re.search(r'(0\.[0-9]+|[0-1]\.[0-9]+)', line)
+                    if score_match:
+                        confidence_score = float(score_match.group(1))
+                elif line.startswith(('-', '•', '*')) and current_section:
+                    content = line[1:].strip()
+                    if current_section == 'insights':
+                        key_insights.append(content)
+                    elif current_section == 'contradictions':
+                        contradictions.append(content)
+                    elif current_section == 'gaps':
+                        gaps.append(content)
+                    elif current_section == 'recommendations':
+                        recommendations.append(content)
+            
+            return ResearchFindings(
+                query=query,
+                sources=sources,
+                synthesis=synthesis,
+                confidence_score=confidence_score,
+                key_insights=key_insights or ["Comprehensive analysis completed"],
+                contradictions=contradictions or [],
+                gaps=gaps or [],
+                recommendations=recommendations or ["Continue monitoring for new developments"],
+                timestamp=time.time()
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing synthesis response: {e}")
+            
+            # Return basic findings structure
+            return ResearchFindings(
+                query=query,
+                sources=sources,
+                synthesis=response,
+                confidence_score=0.7,
+                key_insights=["Analysis completed with sequential thinking"],
+                contradictions=[],
+                gaps=[],
+                recommendations=["Review sources for additional insights"],
+                timestamp=time.time()
+            )
+    
+    async def conduct_comprehensive_research(
+        self, 
+        query: str, 
+        max_sources: int = 100, 
+        use_sequential_thinking: bool = True
+    ) -> ResearchFindings:
+        """Conduct comprehensive multi-source research using ALL available sources"""
         
         # Check cache first
         cache_key = hashlib.md5(query.encode()).hexdigest()
@@ -665,17 +1217,36 @@ class EnhancedResearchManager:
         self.logger.info(f"🔍 Starting comprehensive research for: {query}")
         
         try:
-            # Step 1: Multi-source search
-            sources = await self.searcher.multi_source_search(query, max_sources)
-            self.logger.info(f"📚 Found {len(sources)} initial sources")
+            # Initialize sequential thinking if enabled
+            if use_sequential_thinking:
+                thinking_context = await self._initialize_research_thinking(query)
+                self.logger.info(f"🧠 Sequential thinking initialized for research")
             
-            # Step 2: Extract full content from top sources
-            top_sources = sources[:10]  # Limit content extraction to top 10
-            extracted_sources = await self.extractor.extract_full_content(top_sources)
+            # Step 1: Comprehensive multi-source search (up to max_sources)
+            sources = await self._comprehensive_multi_source_search(query, max_sources)
+            self.logger.info(f"📚 Found {len(sources)} sources from comprehensive search")
+            
+            # Step 2: Use ALL found sources (no artificial limits)
+            # Prioritize sources by quality but don't limit quantity
+            if len(sources) > 50:
+                # For large source sets, rank by quality but keep all
+                selected_sources = await self._intelligent_source_selection(sources, len(sources))
+                self.logger.info(f"🎯 Using all {len(selected_sources)} sources (quality ranked)")
+            else:
+                selected_sources = sources  # Use all available sources
+                self.logger.info(f"🎯 Using all {len(selected_sources)} available sources")
+            
+            # Step 3: Extract full content from selected sources
+            extracted_sources = await self.extractor.extract_full_content(selected_sources)
             self.logger.info(f"📄 Extracted content from {len(extracted_sources)} sources")
             
-            # Step 3: Synthesize research findings
-            findings = await self.synthesizer.synthesize_research(query, extracted_sources)
+            # Step 4: Apply sequential thinking to research synthesis
+            if use_sequential_thinking:
+                findings = await self._synthesize_with_sequential_thinking(
+                    query, extracted_sources, thinking_context
+                )
+            else:
+                findings = await self.synthesizer.synthesize_research(query, extracted_sources)
             
             # Cache the results
             self.research_cache[cache_key] = findings

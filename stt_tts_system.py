@@ -32,8 +32,64 @@ WHISPER_LOCAL_AVAILABLE = False
 SPEECH_RECOGNITION_AVAILABLE = False
 
 
+class ElevenLabsSTTProcessor:
+    """ElevenLabs Speech-to-Text processor"""
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.logger = logging.getLogger(__name__)
+        
+        if not api_key:
+            raise ValueError("ElevenLabs API key is required for STT")
+        
+        self.logger.info("✅ ElevenLabs STT initialized")
+    
+    async def transcribe_audio(self, audio_data: bytes) -> Optional[str]:
+        """Transcribe audio data to text using ElevenLabs STT"""
+        if not self.api_key:
+            return None
+            
+        try:
+            url = "https://api.elevenlabs.io/v1/speech-to-text"
+            headers = {
+                "xi-api-key": self.api_key
+            }
+            
+            # Prepare the multipart form data
+            files = {
+                'file': ('audio.wav', audio_data, 'audio/wav')
+            }
+            data = {
+                'model_id': 'scribe_v1',  # ElevenLabs Scribe v1 model (correct ID)
+                'language_code': 'en',  # English
+                'num_speakers': 1,  # Single speaker for live conversation
+                'optimize_for_latency': True,  # Enable latency optimization
+                'punctuation_threshold': 0.7,  # Lower threshold for faster processing
+                'silence_threshold_ms': 300  # Shorter silence detection for speed
+            }
+            
+            import requests
+            response = requests.post(url, headers=headers, files=files, data=data)
+            
+            if response.status_code == 200:
+                result = response.json()
+                transcript = result.get('text', '').strip()
+                if transcript:
+                    self.logger.info(f"🎤 ElevenLabs STT: {transcript}")
+                    return transcript
+                else:
+                    self.logger.warning("⚠️ No speech detected by ElevenLabs STT")
+                    return None
+            else:
+                self.logger.error(f"❌ ElevenLabs STT error {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"❌ ElevenLabs STT error: {e}")
+            return None
+
 class GoogleCloudSTTProcessor:
-    """Google Cloud Speech-to-Text processor"""
+    """Google Cloud Speech-to-Text processor (legacy fallback)"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -87,7 +143,7 @@ class ElevenLabsTTS:
     
     def __init__(self, api_key: str, voice_id: str = None):
         self.api_key = api_key
-        self.voice_id = voice_id or "dMyQqiVXTU80dDl2eNK8"  #Eryn voice
+        self.voice_id = voice_id or "Hybl6rg76ZOcgqZqN5WN"  # Tala voice (default)
         self.logger = logging.getLogger(__name__)
         
         if not api_key:
@@ -95,11 +151,31 @@ class ElevenLabsTTS:
         
         self.logger.info(f"✅ ElevenLabs TTS initialized with voice: {self.voice_id}")
     
+    def set_voice(self, voice_id: str):
+        """Change the voice for TTS synthesis"""
+        self.voice_id = voice_id
+        self.logger.info(f"🔄 ElevenLabs TTS voice changed to: {self.voice_id}")
+    
     async def synthesize_speech(self, text: str) -> Optional[bytes]:
-        """Convert text to speech using ElevenLabs"""
+        """Convert text to speech using ElevenLabs with smart chunking for long text"""
         if not text.strip():
             return None
-            
+        
+        # Check text length and use appropriate strategy
+        text_length = len(text)
+        
+        # For very long text (>2000 chars), chunk it
+        if text_length > 2000:
+            return await self._synthesize_long_text(text)
+        # For medium text (>800 chars), use regular model for better quality
+        elif text_length > 800:
+            return await self._synthesize_with_regular_model(text)
+        # For short text, use turbo model for speed
+        else:
+            return await self._synthesize_with_turbo_model(text)
+    
+    async def _synthesize_with_turbo_model(self, text: str) -> Optional[bytes]:
+        """Synthesize short text with turbo model for speed"""
         try:
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}"
             headers = {
@@ -108,35 +184,144 @@ class ElevenLabsTTS:
                 "xi-api-key": self.api_key
             }
             
-            # Optimized settings for faster generation
             data = {
                 "text": text,
-                "model_id": "eleven_turbo_v2",  # Faster model for real-time
+                "model_id": "eleven_turbo_v2",
                 "voice_settings": {
-                    "stability": 0.6,
-                    "similarity_boost": 0.8,
+                    "stability": 0.3,
+                    "similarity_boost": 0.6,
                     "style": 0.0,
-                    "use_speaker_boost": True
+                    "use_speaker_boost": False
                 },
-                "optimize_streaming_latency": 4,  # Maximum optimization for streaming
-                "output_format": "mp3_22050_32"   # Lower quality for speed
+                "optimize_streaming_latency": 4,
+                "output_format": "mp3_22050_32"
             }
             
-            # Set timeout for faster response
-            timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
+            timeout = aiohttp.ClientTimeout(total=8)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(url, json=data, headers=headers) as response:
                     if response.status == 200:
                         audio_data = await response.read()
-                        self.logger.info(f"🔊 TTS: Generated {len(audio_data)} bytes for: {text[:50]}...")
+                        self.logger.info(f"🔊 Turbo TTS: {len(audio_data)} bytes for: {text[:50]}...")
                         return audio_data
                     else:
                         error_text = await response.text()
-                        self.logger.error(f"❌ TTS error {response.status}: {error_text}")
+                        self.logger.error(f"❌ Turbo TTS error {response.status}: {error_text}")
                         return None
-                        
         except Exception as e:
-            self.logger.error(f"❌ TTS synthesis error: {e}")
+            self.logger.error(f"❌ Turbo TTS error: {e}")
+            return None
+    
+    async def _synthesize_with_regular_model(self, text: str) -> Optional[bytes]:
+        """Synthesize medium text with regular model for better quality"""
+        try:
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}"
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": self.api_key
+            }
+            
+            data = {
+                "text": text,
+                "model_id": "eleven_multilingual_v2",
+                "voice_settings": {
+                    "stability": 0.4,
+                    "similarity_boost": 0.7,
+                    "style": 0.0,
+                    "use_speaker_boost": False
+                },
+                "optimize_streaming_latency": 3,
+                "output_format": "mp3_44100_64"
+            }
+            
+            timeout = aiohttp.ClientTimeout(total=8, connect=3)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, json=data, headers=headers) as response:
+                    if response.status == 200:
+                        audio_data = await response.read()
+                        self.logger.info(f"🔊 Regular TTS: {len(audio_data)} bytes for: {text[:50]}...")
+                        return audio_data
+                    else:
+                        error_text = await response.text()
+                        self.logger.error(f"❌ Regular TTS error {response.status}: {error_text}")
+                        return None
+        except asyncio.TimeoutError:
+            self.logger.error(f"❌ Regular TTS timeout for text: {text[:50]}...")
+            return None
+        except aiohttp.ClientError as e:
+            self.logger.error(f"❌ Regular TTS client error: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Regular TTS error: {type(e).__name__}: {str(e)}")
+            return None
+    
+    async def _synthesize_long_text(self, text: str) -> Optional[bytes]:
+        """Synthesize long text by chunking into smaller pieces"""
+        try:
+            # Split text into sentences and group them into chunks
+            import re
+            sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+            
+            chunks = []
+            current_chunk = ""
+            
+            for sentence in sentences:
+                # If adding this sentence would make chunk too long, start new chunk (reduced size)
+                if len(current_chunk) + len(sentence) > 500 and current_chunk:
+                    chunks.append(current_chunk.strip())
+                    current_chunk = sentence
+                else:
+                    current_chunk += " " + sentence if current_chunk else sentence
+            
+            # Add the last chunk
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            
+            self.logger.info(f"🔄 Splitting long text into {len(chunks)} chunks")
+            
+            # Generate audio for each chunk with retry logic
+            audio_segments = []
+            for i, chunk in enumerate(chunks):
+                self.logger.info(f"🎵 Processing chunk {i+1}/{len(chunks)}: {chunk[:50]}...")
+                
+                # Try up to 3 times for each chunk
+                for attempt in range(3):
+                    try:
+                        audio_data = await self._synthesize_with_regular_model(chunk)
+                        if audio_data:
+                            audio_segments.append(audio_data)
+                            # Add small delay to prevent rate limiting
+                            if i < len(chunks) - 1:  # Don't delay after last chunk
+                                await asyncio.sleep(0.5)
+                            break
+                        else:
+                            if attempt < 2:  # Don't log error on last attempt
+                                self.logger.warning(f"⚠️ Chunk {i+1} attempt {attempt+1} failed, retrying...")
+                                await asyncio.sleep(1)  # Wait before retry
+                    except Exception as e:
+                        if attempt < 2:
+                            self.logger.warning(f"⚠️ Chunk {i+1} attempt {attempt+1} error: {e}, retrying...")
+                            await asyncio.sleep(1)  # Wait before retry
+                        else:
+                            self.logger.error(f"❌ All attempts failed for chunk {i+1}: {e}")
+                else:
+                    # If we get here, all attempts failed for this chunk
+                    self.logger.warning(f"⚠️ Skipping failed chunk {i+1}, continuing with remaining chunks...")
+                    continue
+            
+            # Combine audio segments (allow partial success)
+            if audio_segments:
+                combined_audio = b''.join(audio_segments)
+                success_rate = len(audio_segments) / len(chunks)
+                self.logger.info(f"🎶 Combined {len(audio_segments)}/{len(chunks)} chunks ({success_rate:.1%} success) into {len(combined_audio)} bytes")
+                return combined_audio
+            else:
+                self.logger.error("❌ No audio chunks were successfully generated")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"❌ Long text TTS error: {e}")
             return None
 
 
@@ -146,11 +331,19 @@ class STTTTSManager:
     def __init__(self, elevenlabs_api_key: str, voice_id: str = None):
         self.logger = logging.getLogger(__name__)
         
-        # Initialize STT (Google Cloud STT)
-        self.stt_processor = GoogleCloudSTTProcessor()
-        if not self.stt_processor.client:
-            self.logger.error("❌ No STT processor available")
-            self.stt_processor = None
+        # Initialize STT (ElevenLabs STT with fallback to Google Cloud)
+        try:
+            self.stt_processor = ElevenLabsSTTProcessor(elevenlabs_api_key)
+            self.logger.info("✅ Using ElevenLabs STT for better quality")
+        except Exception as e:
+            self.logger.warning(f"⚠️ ElevenLabs STT not available: {e}")
+            # Fallback to Google Cloud STT
+            self.stt_processor = GoogleCloudSTTProcessor()
+            if not self.stt_processor.client:
+                self.logger.error("❌ No STT processor available")
+                self.stt_processor = None
+            else:
+                self.logger.info("📞 Using Google Cloud STT as fallback")
         
         # Initialize TTS
         try:
@@ -165,6 +358,14 @@ class STTTTSManager:
         self.on_error = None
         
         self.logger.info("🎯 STT/TTS Manager initialized")
+    
+    def set_voice(self, voice_id: str):
+        """Change the voice for TTS synthesis"""
+        if self.tts_processor:
+            self.tts_processor.set_voice(voice_id)
+            self.logger.info(f"🎤 STT/TTS Manager voice changed to: {voice_id}")
+        else:
+            self.logger.warning("⚠️ Cannot change voice - TTS processor not available")
     
     def set_callbacks(self, 
                      on_transcript: Optional[Callable] = None,

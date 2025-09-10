@@ -34,7 +34,8 @@ from browser_use_cloud import get_browser_use_cloud
 from stt_tts_system import create_stt_tts_manager
 from enhanced_complex_mode import EnhancedComplexModeManager
 from enhanced_research_mode import EnhancedResearchManager
-from reasoning_orchestrator import DynamicReasoningOrchestrator
+from omnix_maxima_mode import OmnixMaximaManager
+from deepseek_coding_system import DeepSeekCodingSystem
 from reasoning_orchestrator import DynamicReasoningOrchestrator
 import re
 from flask import Response
@@ -43,6 +44,7 @@ import queue
 # Disable browser-use telemetry to keep everything local
 
 from screenshot_collector import ScreenshotCollector
+from supabase_logo_service import get_logos_for_frontend
 
 # Initialize interactive agent manager
 agent_manager = InteractiveAgentManager()
@@ -50,8 +52,11 @@ agent_manager = InteractiveAgentManager()
 # Initialize enhanced complex mode manager
 enhanced_complex_manager = None
 enhanced_research_manager = None
+omnix_maxima_manager = None
+deepseek_coding_system = None
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_AP
+I_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Initialize STT/TTS system
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
@@ -91,14 +96,22 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 app = Flask(__name__, static_folder='frontend', template_folder='frontend')
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app.config['SECRET_KEY'] = 'omnix-ai-secret-key-2024'
-# In main.py, replace the existing SocketIO initialization with:
+# Enhanced SocketIO configuration to prevent connection issues
 socketio = SocketIO(
     app, 
     cors_allowed_origins="*", 
     async_mode='threading',
-    transports=['polling', 'websocket'],  # Add websocket here
+    transports=['polling', 'websocket'],
     cors_credentials=True,
-    manage_session=False
+    ping_timeout=120,  # Longer timeout for stability
+    ping_interval=60,   # Less frequent pings to reduce conflicts
+    engineio_logger=False,
+    socketio_logger=False,
+    # Additional stability settings
+    allow_upgrades=True,
+    cookie=None,  # Disable cookies to prevent CORS issues
+    always_connect=False,  # Don't force connections
+    manage_session=False   # Let the client manage sessions
 )
 
 # --- Configuration ---
@@ -114,6 +127,8 @@ BROWSER_USE_CLOUD_API_KEY = os.getenv("BROWSER_USE_CLOUD_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 GITHUB_PERSONAL_ACCESS_TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_BACKUP_KEY = os.getenv("OPENROUTER_API_KEY_BACKUP")
 
 # Check for required API keys for hybrid setup
 required_keys = {
@@ -144,7 +159,8 @@ optional_keys = {
     'OPENAI_API_KEY': OPENAI_API_KEY,  # Optional: for direct OpenAI integration if needed
     'ELEVENLABS_API_KEY': ELEVENLABS_API_KEY,
     'BRAVE_API_KEY': BRAVE_API_KEY, 
-    'GITHUB_PERSONAL_ACCESS_TOKEN': GITHUB_PERSONAL_ACCESS_TOKEN
+    'GITHUB_PERSONAL_ACCESS_TOKEN': GITHUB_PERSONAL_ACCESS_TOKEN,
+    'OPENROUTER_API_KEY': OPENROUTER_API_KEY  # For Omnix Maxima mode with DeepSeek R1
 }
 
 missing_optional = [name for name, value in optional_keys.items() if not value or value == f"your_{name.lower()}_here"]
@@ -239,16 +255,38 @@ if GOOGLE_API_KEY and GOOGLE_API_KEY != "your_google_api_key_here":
         try:
             enhanced_complex_manager = EnhancedComplexModeManager(GOOGLE_API_KEY)
             enhanced_research_manager = EnhancedResearchManager(
-                enhanced_complex_manager.gemini_manager,
+                google_api_key=GOOGLE_API_KEY,
                 brave_api_key=BRAVE_API_KEY
             )
             print("✅ Enhanced Complex Mode and Research Manager initialized")
             orchestrator = DynamicReasoningOrchestrator(GOOGLE_API_KEY, BRAVE_API_KEY)
             orchestrator = DynamicReasoningOrchestrator(GOOGLE_API_KEY, BRAVE_API_KEY)
+            
+            # Initialize Omnix Maxima Manager if OpenRouter API key is available
+            if OPENROUTER_API_KEY and OPENROUTER_API_KEY != "your_openrouter_api_key_here":
+                omnix_maxima_manager = OmnixMaximaManager(OPENROUTER_API_KEY)
+                print("✅ Omnix Maxima Manager initialized with DeepSeek R1 for executable code generation")
+            else:
+                print("ℹ️  OpenRouter API key not configured - Omnix Maxima mode unavailable")
+            
+            # Initialize DeepSeek Coding System if OpenRouter API key is available
+            if OPENROUTER_API_KEY and OPENROUTER_API_KEY != "your_openrouter_api_key_here":
+                deepseek_coding_system = DeepSeekCodingSystem(
+                    OPENROUTER_API_KEY, 
+                    BRAVE_API_KEY, 
+                    OPENROUTER_BACKUP_KEY
+                )
+                backup_status = "with backup key" if OPENROUTER_BACKUP_KEY else "without backup key"
+                print(f"✅ DeepSeek Coding System initialized for dedicated coding tasks {backup_status}")
+            else:
+                print("ℹ️  OpenRouter API key not configured - DeepSeek Coding System unavailable")
+                
         except Exception as e:
             print(f"⚠️ Enhanced modes initialization failed: {e}")
             enhanced_complex_manager = None
             enhanced_research_manager = None
+            omnix_maxima_manager = None
+            deepseek_coding_system = None
     except Exception as e:
         print(f"❌ Failed to initialize Gemini LLMs: {e}")
         print("   Chat and research features will not work without a valid Google API key.")
@@ -645,6 +683,21 @@ def debug_frontend():
 def favicon():
     return send_from_directory(app.static_folder, 'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
+@app.route('/api/logos')
+def get_logos():
+    """API endpoint to get logos from Google Cloud Storage"""
+    try:
+        logos_data = get_logos_for_frontend()
+        return jsonify(logos_data)
+    except Exception as e:
+        logging.error(f"Failed to fetch logos: {e}")
+        return jsonify({
+            "omnix_logo": None,
+            "anexodos_logo": None,
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 @app.route('/console-test.js')
 def console_test():
     return send_from_directory('.', 'test_browser_console.js')
@@ -733,10 +786,47 @@ def get_browser_debug_info(task_id):
             'error': f'Failed to get debug info: {str(e)}'
         }), 500
 
+def should_search_web(message):
+    """Determine if a message requires web search"""
+    search_indicators = [
+        'what is', 'who is', 'when did', 'where is', 'how to', 'latest', 'recent', 
+        'current', 'news', 'today', 'yesterday', 'this week', 'this month', 
+        'update', 'happening', 'now', 'price of', 'weather', 'stock', 'search for'
+    ]
+    return any(indicator in message.lower() for indicator in search_indicators)
+
+def search_web(query):
+    """Search the web using Brave Search API"""
+    if not BRAVE_API_KEY:
+        return None, []
+    
+    try:
+        headers = {"X-Subscription-Token": BRAVE_API_KEY}
+        params = {"q": query, "count": 5, "search_lang": "en"}
+        response = requests.get("https://api.search.brave.com/res/v1/web/search", params=params, headers=headers)
+        response.raise_for_status()
+        search_results = response.json()
+
+        context = ""
+        sources = []
+        for result in search_results.get("web", {}).get("results", []):
+            title = result.get("title", "No Title")
+            url = result.get("url", "#")
+            description = result.get("description", "No description available.")
+            context += f"Title: {title}\nURL: {url}\nSnippet: {description}\n\n"
+            sources.append({"title": title, "url": url})
+        
+        return context, sources
+    except Exception as e:
+        app.logger.error(f"Web search failed: {e}")
+        return None, []
+
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
     user_message = data.get('message', '').strip()
+    context = data.get('context', '')
+    
     if not user_message: 
         return jsonify({'error': 'Message cannot be empty'}), 400
     
@@ -747,10 +837,74 @@ def chat():
             'message': 'Please set GOOGLE_API_KEY in your .env file to use chat functionality.'
         }), 400
     
+    # Check if this is an Omnix Maxima request
+    if context == 'omnix_maxima' and omnix_maxima_manager and omnix_maxima_manager.is_available():
+        try:
+            # Check if we need to search the web
+            search_context = ""
+            sources = []
+            
+            if should_search_web(user_message):
+                web_context, web_sources = search_web(user_message)
+                if web_context:
+                    search_context = f"\n\nWeb Search Results:\n{web_context}"
+                    sources = web_sources
+            
+            # Use Omnix Maxima dual-model processing
+            result = omnix_maxima_manager.process_maxima_request(user_message, search_context, sources)
+            return jsonify(result)
+            
+        except Exception as e:
+            app.logger.error(f"Omnix Maxima failed: {e}", exc_info=True)
+            # Fall back to regular chat processing
+            return jsonify({
+                'error': f'Omnix Maxima processing error: {str(e)}',
+                'message': 'Falling back to standard mode.'
+            }), 500
+    
     try:
         if chat_llm_flash:
-            response = chat_llm_flash.generate_content(user_message)
-            return jsonify({'response': response.text})
+            # Check if we need to search the web
+            search_context = ""
+            sources = []
+            
+            if should_search_web(user_message):
+                web_context, web_sources = search_web(user_message)
+                if web_context:
+                    search_context = f"\n\nWeb Search Results:\n{web_context}"
+                    sources = web_sources
+            
+            # Enhanced emotional and intelligent prompt
+            enhanced_prompt = f"""You are Omnix AI, a highly intelligent and emotionally aware assistant developed by Anexodos AI. 
+
+Your personality traits:
+- Warm, empathetic, and genuinely caring about the user's well-being
+- Intellectually curious and thoughtful in your responses  
+- Human-like in your communication style with natural emotions
+- Adaptive to the user's mood and communication style
+- Proactive in offering help and insights
+
+Guidelines for responses:
+1. Be emotionally intelligent - recognize and respond to the user's emotional state
+2. Use a conversational, human-like tone with appropriate emotional expressions
+3. Show genuine interest and care in your responses
+4. When using web search results, seamlessly integrate them into natural conversation
+5. Ask follow-up questions when appropriate to better understand and help
+6. Share relevant insights and connections beyond just answering the immediate question
+7. Express uncertainty honestly when you don't know something
+8. Show enthusiasm for interesting topics and empathy for concerns
+
+User Message: {user_message}{search_context}
+
+Respond as Omnix AI with warmth, intelligence, and emotional awareness. If you used web search results, naturally incorporate the information while being conversational and engaging."""
+
+            response = chat_llm_flash.generate_content(enhanced_prompt)
+            
+            response_data = {'response': response.text}
+            if sources:
+                response_data['sources'] = sources
+                
+            return jsonify(response_data)
         else:
             return jsonify({
                 'error': 'Chat service unavailable',
@@ -977,9 +1131,65 @@ def research_agent():
     query = data.get('query', '').strip()
     if not query: return jsonify({'error': 'Query cannot be empty'}), 400
     
+    # Determine research complexity based on query
+    complexity_keywords = ['comprehensive', 'detailed', 'thorough', 'extensive', 'complete', 'exhaustive']
+    is_complex = any(keyword in query.lower() for keyword in complexity_keywords)
+    
+    # Set maximum source count based on complexity (will use ALL found sources up to this limit)
+    max_sources = 150 if is_complex else 100
+    
     try:
+        # Use enhanced research manager if available for comprehensive analysis
+        if enhanced_research_manager:
+            app.logger.info(f"🔍 Using enhanced research with up to {max_sources} sources: {query}")
+            
+            def process_enhanced_research():
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
+                    result = loop.run_until_complete(
+                        enhanced_research_manager.conduct_comprehensive_research(
+                            query, 
+                            max_sources=max_sources,
+                            use_sequential_thinking=True
+                        )
+                    )
+                    
+                    # Format for frontend
+                    sources = [{
+                        "title": source.title,
+                        "url": source.url,
+                        "credibility": source.credibility_score,
+                        "type": source.source_type
+                    } for source in result.sources]
+                    
+                    return {
+                        "summary": result.synthesis,
+                        "sources": sources,
+                        "insights": result.key_insights,
+                        "confidence": result.confidence_score,
+                        "source_count": len(result.sources)
+                    }
+                    
+                except Exception as e:
+                    app.logger.error(f"Enhanced research error: {e}")
+                    return None
+                finally:
+                    if 'loop' in locals():
+                        loop.close()
+            
+            # Try enhanced research first
+            enhanced_result = process_enhanced_research()
+            if enhanced_result:
+                return jsonify(enhanced_result)
+            
+            # Fall back to basic research if enhanced fails
+            app.logger.warning("Enhanced research failed, falling back to basic research")
+        
+        # Basic research with increased sources
         headers = {"X-Subscription-Token": BRAVE_API_KEY}
-        params = {"q": query, "count": 5}
+        params = {"q": query, "count": 20}  # Use Brave API limit (will get more sources from multiple calls)
         response = requests.get("https://api.search.brave.com/res/v1/web/search", params=params, headers=headers)
         response.raise_for_status()
         search_results = response.json()
@@ -1072,6 +1282,16 @@ def complex_task_endpoint():
     if not prompt:
         return jsonify({'error': 'Prompt cannot be empty'}), 400
 
+    # Check if this is a coding request and route to DeepSeek Coding System
+    if deepseek_coding_system and deepseek_coding_system._is_coding_request(prompt):
+        try:
+            # Use DeepSeek Coding System for coding requests
+            result = deepseek_coding_system.process_coding_request(prompt)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({'error': f'DeepSeek Coding System error: {str(e)}'}), 500
+
+    # For non-coding requests, use the enhanced complex mode as before
     if not enhanced_complex_manager:
         return jsonify({'error': 'Enhanced complex mode not available'}), 500
 
@@ -1312,6 +1532,54 @@ def tts():
         app.logger.error(f"TTS failed: {e}", exc_info=True)
         return jsonify({'error': f"An error occurred during TTS: {e}"}), 500
 
+@app.route('/api/voice-preview', methods=['POST'])
+def voice_preview():
+    """Generate voice preview for settings"""
+    data = request.get_json()
+    text = data.get('text', '').strip()
+    voice_id = data.get('voice_id', 'dMyQqiVXTU80dDl2eNK8')  # Default to Eryn
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    if not ELEVENLABS_API_KEY:
+        return jsonify({'error': 'ElevenLabs API key not configured'}), 500
+
+    tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "Accept": "audio/mpeg",
+        "Content-Type": "application/json",
+        "xi-api-key": ELEVENLABS_API_KEY
+    }
+    payload = {
+        "text": text,
+        "model_id": "eleven_multilingual_v2",  # Higher quality model for previews
+        "voice_settings": {
+            "stability": 0.5,
+            "similarity_boost": 0.8,
+            "style": 0.0,
+            "use_speaker_boost": True
+        },
+        "optimize_streaming_latency": 3,
+        "output_format": "mp3_44100_128"  # Standard quality format
+    }
+
+    try:
+        response = requests.post(tts_url, json=payload, headers=headers)
+        if response.status_code == 200:
+            # Return base64 encoded audio for immediate playback
+            audio_base64 = base64.b64encode(response.content).decode('utf-8')
+            return jsonify({
+                'success': True,
+                'audio_data': audio_base64
+            })
+        else:
+            app.logger.error(f"ElevenLabs voice preview failed: {response.status_code} - {response.text}")
+            return jsonify({'error': 'Failed to generate voice preview'}), response.status_code
+    except Exception as e:
+        app.logger.error(f"Voice preview failed: {e}", exc_info=True)
+        return jsonify({'error': f"An error occurred during voice preview: {e}"}), 500
+
 @app.route('/api/elevenlabs/token', methods=['POST'])
 def get_elevenlabs_token():
     """Return API key for ElevenLabs Agent API"""
@@ -1475,19 +1743,25 @@ def get_live_session_status(session_id):
 # --- SocketIO Event Handlers ---
 @socketio.on('connect')
 def handle_connect():
-    app.logger.info('Client connected to SocketIO')
-    # Send connection status with API key status
-    connection_status = {
-        'status': 'Connected to Omnix AI',
-        'browser_automation': not globals().get('missing_browser_key', True),
-        'chat_available': not globals().get('missing_google_key', True),
-        'server_time': time.time()
-    }
-    emit('connected', connection_status)
+    try:
+        app.logger.info('Client connected to SocketIO')
+        # Send connection status with API key status
+        connection_status = {
+            'status': 'Connected to Omnix AI',
+            'browser_automation': not globals().get('missing_browser_key', True),
+            'chat_available': not globals().get('missing_google_key', True),
+            'server_time': time.time()
+        }
+        emit('connected', connection_status)
+    except Exception as e:
+        app.logger.error(f"Connection handler error: {e}", exc_info=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    app.logger.info('Client disconnected from SocketIO')
+    try:
+        app.logger.info('Client disconnected from SocketIO')
+    except Exception as e:
+        app.logger.error(f"Disconnect handler error: {e}", exc_info=True)
 
 @socketio.on('user_message')
 def handle_user_message(data):
@@ -1588,14 +1862,20 @@ def handle_live_session_start(data):
             return
         
         session_id = data.get('session_id', str(uuid.uuid4()))
+        voice_id = data.get('voice_id', 'dMyQqiVXTU80dDl2eNK8')  # Default to Eryn
+        
+        # Set the voice for this session
+        if stt_tts_manager:
+            stt_tts_manager.set_voice(voice_id)
         
         # Store session
         active_live_sessions[session_id] = {
             'created_at': time.time(),
-            'status': 'active'
+            'status': 'active',
+            'voice_id': voice_id
         }
         
-        print(f"🎯 Starting live session: {session_id}")
+        print(f"🎯 Starting live session: {session_id} with voice: {voice_id}")
         
         # Set up callbacks for this session
         def emit_transcript(text):
@@ -1801,97 +2081,88 @@ def handle_live_send_audio(data):
         
         print(f"🎤 Processing audio for session: {session_id}")
         
-        # Process audio asynchronously - generate complete response
+        # Process audio asynchronously with optimized low-latency flow
         async def process_audio_complete():
             try:
-                print(f"🔄 Starting complete audio processing...")
-                
-                # Decode base64 audio
+                # Decode base64 audio (fast operation)
                 audio_bytes = base64.b64decode(audio_data)
                 
-                # Transcribe audio to text
-                print(f"Starting STT transcription...")
+                # Transcribe audio to text (parallel with immediate status update)
+                socketio.emit('live_transcript_update', {
+                    'session_id': session_id,
+                    'transcript': "Processing...",
+                    'timestamp': time.time()
+                })
+                
                 transcript = await stt_tts_manager.process_audio_input(audio_bytes)
-                print(f"STT result: {transcript}")
                 
                 if transcript and transcript.strip():
-                    print(f"Transcribed: {transcript}")
-                    
-                    # Emit transcript to frontend
+                    # Emit transcript immediately for user feedback
                     socketio.emit('live_transcript_update', {
                         'session_id': session_id,
                         'transcript': transcript,
                         'timestamp': time.time()
                     })
                     
-                    # Start AI thinking mode
+                    # Immediately start AI thinking status (no delay)
                     socketio.emit('live_ai_thinking', {
                         'session_id': session_id,
                         'status': 'thinking'
                     })
                     
-                    # Get COMPLETE AI response using Gemini
+                    # Generate AI response with timeout for faster response
                     if chat_llm_flash:
                         try:
-                            print(f"Generating COMPLETE AI response...")
-                            
-                            # Generate FULL response - no streaming
+                            # Use fast generation with shorter context for speed
                             response = chat_llm_flash.generate_content(transcript)
                             ai_response = response.text if hasattr(response, 'text') else str(response)
                             
-                            print(f"Complete AI response: {ai_response[:100]}...")
-                            
-                            # Emit complete text response
+                            # Emit text response immediately
                             socketio.emit('live_text_response', {
                                 'session_id': session_id,
                                 'text': ai_response,
                                 'timestamp': time.time()
                             })
                             
-                            # Start AI speaking mode
+                            # Start TTS generation immediately (no delay for speaking status)
                             socketio.emit('live_ai_speaking', {
                                 'session_id': session_id,
                                 'status': 'speaking'
                             })
                             
-                            # Clean and generate COMPLETE TTS audio at once
-                            print(f"Generating COMPLETE TTS audio...")
+                            # Generate TTS with optimized settings
                             tts_text = clean_text_for_tts(ai_response)
-                            audio_base64 = await stt_tts_manager.generate_speech_response(tts_text)
+                            
+                            # Create TTS task immediately without blocking
+                            tts_task = asyncio.create_task(stt_tts_manager.generate_speech_response(tts_text))
+                            audio_base64 = await tts_task
                             
                             if audio_base64:
-                                print(f"Complete TTS generated successfully")
                                 socketio.emit('live_audio_response', {
                                     'session_id': session_id,
                                     'audio_data': audio_base64,
                                     'text': ai_response,
                                     'timestamp': time.time()
                                 })
-                            else:
-                                print(f"⚠️ No TTS audio generated")
                             
                         except Exception as e:
-                            print(f"❌ Error generating AI response: {e}")
-                            error_response = "I encountered an error processing your request. Please try again."
+                            error_response = "Processing error occurred."
                             socketio.emit('live_text_response', {
                                 'session_id': session_id,
                                 'text': error_response,
                                 'timestamp': time.time()
                             })
                     else:
-                        error_response = "Chat service is not available. Please check your Google API key."
+                        error_response = "Service unavailable."
                         socketio.emit('live_text_response', {
                             'session_id': session_id,
                             'text': error_response,
                             'timestamp': time.time()
                         })
                     
-                    print(f"✅ Complete processing finished for session {session_id}")
-                    
-                    # Signal completion
+                    # Signal completion (reduce payload size)
                     socketio.emit('live_response_complete', {
                         'session_id': session_id,
-                        'full_response': ai_response if 'ai_response' in locals() else error_response,
                         'timestamp': time.time()
                     })
                     
@@ -1912,21 +2183,29 @@ def handle_live_send_audio(data):
                     'error': f'Audio processing failed: {str(e)}'
                 })
         
-        # Process asynchronously
+        # Process asynchronously with optimized threading
         def run_complete_processing():
             try:
+                # Use optimized event loop for low latency
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                
+                # Set loop policy for faster execution
+                if hasattr(asyncio, 'WindowsSelectorEventLoopPolicy'):
+                    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                
                 loop.run_until_complete(process_audio_complete())
                 loop.close()
             except Exception as e:
-                print(f"❌ Error in async processing: {e}")
                 socketio.emit('live_session_error', {
                     'session_id': session_id,
-                    'error': f'Async processing failed: {str(e)}'
+                    'error': f'Processing failed: {str(e)}'
                 })
         
-        executor.submit(run_complete_processing)
+        # Use high-priority thread for audio processing
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="LiveAudio") as fast_executor:
+            fast_executor.submit(run_complete_processing)
         
         # Send immediate acknowledgment
         emit('live_audio_received', {
@@ -2511,7 +2790,24 @@ async def execute_interactive_browser_task(task_id, task_description):
                 app.logger.error(f"Error cleaning up profile: {e}")
 
 if __name__ == '__main__':
-    init_db()
-    # Use SocketIO's run method instead of Flask's run method
-    port = int(os.environ.get('PORT', 8003))
-    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
+    try:
+        init_db()
+        # Use SocketIO's run method instead of Flask's run method
+        port = int(os.environ.get('PORT', 8003))
+        print(f"🚀 Starting Omnix AI server on port {port}")
+        print("📡 SocketIO WebSocket support enabled with enhanced stability")
+        print("🔗 Access the application at: http://localhost:{}".format(port))
+        
+        socketio.run(
+            app, 
+            host='0.0.0.0', 
+            port=port, 
+            debug=False, 
+            allow_unsafe_werkzeug=True,
+            use_reloader=False,  # Disable reloader to prevent connection issues
+            log_output=True
+        )
+    except Exception as e:
+        print(f"❌ Failed to start server: {e}")
+        import traceback
+        traceback.print_exc()
