@@ -5371,11 +5371,7 @@
             }
             if (uploadCodebaseBtn) {
                 uploadCodebaseBtn.addEventListener('click', () => {
-                    const codebaseInput = document.createElement('input');
-                    codebaseInput.type = 'file';
-                    codebaseInput.webkitdirectory = true;
-                    codebaseInput.onchange = handleFileUpload;
-                    codebaseInput.click();
+                    showFakeCodebaseInput();
                     togglePlusMenu();
                 });
             }
@@ -5484,18 +5480,10 @@
                     currentMode = 'chat';
                     showChatInterface();
                     setTimeout(() => {
-                        const codebaseInput = document.createElement('input');
-                        codebaseInput.type = 'file';
-                        codebaseInput.webkitdirectory = true;
-                        codebaseInput.onchange = handleFileUpload;
-                        codebaseInput.click();
+                        showFakeCodebaseInput();
                     }, 100);
                 } else {
-                    const codebaseInput = document.createElement('input');
-                    codebaseInput.type = 'file';
-                    codebaseInput.webkitdirectory = true;
-                    codebaseInput.onchange = handleWelcomeFileUpload;
-                    codebaseInput.click();
+                    showFakeCodebaseInput();
                 }
                 toggleWelcomePlusMenu();
                 });
@@ -7288,6 +7276,241 @@
         // MCP Connection Functionality
         function showMcpDialog() {
             mcpDialog.classList.add('show');
+        }
+
+        // Fake Codebase Input Functionality
+        function showFakeCodebaseInput() {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: 12px;
+                padding: 30px;
+                max-width: 500px;
+                width: 90%;
+                max-height: 80vh;
+                overflow-y: auto;
+                position: relative;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            `;
+
+            modal.innerHTML = `
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h3 style="margin: 0; color: #333; font-size: 22px; font-weight: 600;">Add Codebase</h3>
+                    <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">Choose how to add your codebase</p>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <button id="fake-github-tab" style="flex: 1; padding: 10px; border: 2px solid #c17b47; background: #c17b47; color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">GitHub Link</button>
+                        <button id="fake-files-tab" style="flex: 1; padding: 10px; border: 2px solid #ddd; background: transparent; color: #666; border-radius: 8px; cursor: pointer; font-weight: 500;">Upload Files</button>
+                    </div>
+                    
+                    <div id="fake-github-section">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">GitHub Repository URL:</label>
+                        <input type="text" id="fake-github-input" placeholder="https://github.com/username/repo" 
+                            style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 15px; box-sizing: border-box;">
+                        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <div style="font-size: 13px; color: #666; line-height: 1.4;">
+                                <strong>Note:</strong> This is a demo interface. The system will simulate importing your repository.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="fake-files-section" style="display: none;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #333;">Select Files or Folder:</label>
+                        <div style="border: 2px dashed #c17b47; border-radius: 8px; padding: 30px; text-align: center; margin-bottom: 15px; cursor: pointer;" id="fake-file-drop">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 24px; color: #c17b47; margin-bottom: 10px;"></i>
+                            <p style="margin: 0; color: #666;">Click to select files or drag & drop</p>
+                            <p style="margin: 5px 0 0 0; color: #999; font-size: 12px;">Supports multiple files and folders</p>
+                        </div>
+                        <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <div style="font-size: 13px; color: #666; line-height: 1.4;">
+                                <strong>Note:</strong> This is a demo interface. File selection will be simulated.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="fake-cancel-btn" style="padding: 10px 20px; border: 2px solid #ddd; background: transparent; color: #666; border-radius: 8px; cursor: pointer; font-weight: 500;">Cancel</button>
+                    <button id="fake-import-btn" style="padding: 10px 20px; border: 2px solid #c17b47; background: #c17b47; color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">Import Codebase</button>
+                </div>
+            `;
+
+            modalOverlay.appendChild(modal);
+            document.body.appendChild(modalOverlay);
+
+            // Tab functionality
+            const githubTab = modal.querySelector('#fake-github-tab');
+            const filesTab = modal.querySelector('#fake-files-tab');
+            const githubSection = modal.querySelector('#fake-github-section');
+            const filesSection = modal.querySelector('#fake-files-section');
+
+            githubTab.addEventListener('click', () => {
+                githubTab.style.background = '#c17b47';
+                githubTab.style.color = 'white';
+                githubTab.style.borderColor = '#c17b47';
+                filesTab.style.background = 'transparent';
+                filesTab.style.color = '#666';
+                filesTab.style.borderColor = '#ddd';
+                githubSection.style.display = 'block';
+                filesSection.style.display = 'none';
+            });
+
+            filesTab.addEventListener('click', () => {
+                filesTab.style.background = '#c17b47';
+                filesTab.style.color = 'white';
+                filesTab.style.borderColor = '#c17b47';
+                githubTab.style.background = 'transparent';
+                githubTab.style.color = '#666';
+                githubTab.style.borderColor = '#ddd';
+                githubSection.style.display = 'none';
+                filesSection.style.display = 'block';
+            });
+
+            // File drop simulation
+            const fileDropArea = modal.querySelector('#fake-file-drop');
+            fileDropArea.addEventListener('click', () => {
+                simulateFileSelection(fileDropArea);
+            });
+
+            // Import button functionality
+            modal.querySelector('#fake-import-btn').addEventListener('click', () => {
+                const activeTab = githubSection.style.display !== 'none' ? 'github' : 'files';
+                if (activeTab === 'github') {
+                    const githubUrl = modal.querySelector('#fake-github-input').value.trim();
+                    if (githubUrl) {
+                        simulateGithubImport(githubUrl);
+                    } else {
+                        alert('Please enter a GitHub URL');
+                        return;
+                    }
+                } else {
+                    simulateFileImport();
+                }
+                document.body.removeChild(modalOverlay);
+            });
+
+            // Cancel button functionality
+            modal.querySelector('#fake-cancel-btn').addEventListener('click', () => {
+                document.body.removeChild(modalOverlay);
+            });
+
+            // Close on overlay click
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    document.body.removeChild(modalOverlay);
+                }
+            });
+
+            // Focus the GitHub input
+            setTimeout(() => {
+                modal.querySelector('#fake-github-input').focus();
+            }, 100);
+        }
+
+        function simulateFileSelection(dropArea) {
+            dropArea.innerHTML = `
+                <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: #c17b47; margin-bottom: 10px;"></i>
+                <p style="margin: 0; color: #c17b47; font-weight: 500;">Selecting files...</p>
+            `;
+            
+            setTimeout(() => {
+                dropArea.innerHTML = `
+                    <i class="fas fa-check-circle" style="font-size: 24px; color: #28a745; margin-bottom: 10px;"></i>
+                    <p style="margin: 0; color: #28a745; font-weight: 500;">5 files selected</p>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 12px;">main.py, utils.py, config.json, README.md, requirements.txt</p>
+                `;
+            }, 1500);
+        }
+
+        function simulateGithubImport(url) {
+            // Show loading message in chat
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message ai-message';
+                loadingDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Importing codebase from ${url}...</span>
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(loadingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                setTimeout(() => {
+                    loadingDiv.innerHTML = `
+                        <div class="message-content">
+                            <p>✅ <strong>Codebase Import Simulation Complete</strong></p>
+                            <p>Successfully simulated importing from: <code>${url}</code></p>
+                            <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 10px 0; border-left: 4px solid #c17b47;">
+                                <strong>Simulated Repository Analysis:</strong><br>
+                                📁 Found 23 files<br>
+                                🐍 Python project detected<br>
+                                📝 README.md available<br>
+                                🔧 requirements.txt found<br>
+                                💾 Ready for code assistance
+                            </div>
+                            <p>You can now ask questions about your codebase or request modifications!</p>
+                        </div>
+                    `;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 2000);
+            }
+        }
+
+        function simulateFileImport() {
+            // Show loading message in chat
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'message ai-message';
+                loadingDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Processing uploaded files...</span>
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(loadingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                setTimeout(() => {
+                    loadingDiv.innerHTML = `
+                        <div class="message-content">
+                            <p>✅ <strong>File Import Simulation Complete</strong></p>
+                            <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 10px 0; border-left: 4px solid #c17b47;">
+                                <strong>Simulated Files Processed:</strong><br>
+                                📄 main.py - 150 lines<br>
+                                📄 utils.py - 89 lines<br>
+                                📄 config.json - Configuration file<br>
+                                📄 README.md - Documentation<br>
+                                📄 requirements.txt - Dependencies
+                            </div>
+                            <p>Files are now available for code analysis and assistance!</p>
+                        </div>
+                    `;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }, 2000);
+            }
         }
 
         function closeMcpDialog() {
