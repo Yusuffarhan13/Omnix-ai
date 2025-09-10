@@ -55,8 +55,7 @@ enhanced_research_manager = None
 omnix_maxima_manager = None
 deepseek_coding_system = None
 
-GOOGLE_AP
-I_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Initialize STT/TTS system
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")

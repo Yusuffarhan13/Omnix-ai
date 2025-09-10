@@ -4505,9 +4505,6 @@
                     <button class="welcome-control-btn" id="welcome-mic-btn" title="Voice input">
                         <i class="fas fa-microphone"></i>
                     </button>
-                    <button class="welcome-control-btn slider-btn" id="welcome-slider-btn" title="Settings & Options">
-                        <i class="fas fa-sliders-h"></i>
-                    </button>
                 </div>
                 
                 <!-- Right Controls (Model Selector, Send) -->
@@ -4553,88 +4550,6 @@
                     </div>
                 </div>
 
-                <!-- Slider Popup for Welcome -->
-                <div class="slider-popup" id="welcome-slider-popup">
-                    <!-- Feature Toggles -->
-                    <div class="toggle-item">
-                        <span class="toggle-item-label">Web Search</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-web-search-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    
-                    <div class="toggle-item">
-                        <span class="toggle-item-label">Researcher</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-researcher-toggle">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    
-                    <div class="toggle-item">
-                        <span class="toggle-item-label">Extended Reasoning</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-extended-reasoning-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    
-                    <div class="toggle-item">
-                        <span class="toggle-item-label">Sequential Thinking</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="welcome-sequential-thinking-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <div class="separator"></div>
-
-                    <!-- Styles Dropdown -->
-                    <div class="dropdown-section">
-                        <div class="dropdown-header" onclick="toggleWelcomeStylesDropdown(event)">
-                            <div class="dropdown-header-content">
-                                <i class="fas fa-feather-alt dropdown-icon"></i>
-                                <span class="dropdown-title">Styles</span>
-                            </div>
-                            <i class="fas fa-chevron-down dropdown-arrow" id="welcome-styles-arrow"></i>
-                        </div>
-                        <div class="dropdown-content" id="welcome-styles-dropdown">
-                            <div class="dropdown-option" onclick="selectWelcomeStyle('auto')">Auto</div>
-                            <div class="dropdown-option" onclick="selectWelcomeStyle('formal')">Formal</div>
-                            <div class="dropdown-option" onclick="selectWelcomeStyle('explanatory')">Explanatory</div>
-                            <div class="dropdown-option" onclick="selectWelcomeStyle('concise')">Concise</div>
-                            <div class="dropdown-option" onclick="selectWelcomeStyle('friendly')">Friendly</div>
-                            <div class="dropdown-option" onclick="selectWelcomeStyle('custom')">Custom</div>
-                        </div>
-                    </div>
-
-                    <!-- Tools Dropdown -->
-                    <div class="dropdown-section">
-                        <div class="dropdown-header" onclick="toggleWelcomeToolsDropdown(event)">
-                            <div class="dropdown-header-content">
-                                <i class="fas fa-tools dropdown-icon"></i>
-                                <span class="dropdown-title">Tools</span>
-                            </div>
-                            <i class="fas fa-chevron-down dropdown-arrow" id="welcome-tools-arrow"></i>
-                        </div>
-                        <div class="dropdown-content tools-dropdown-content" id="welcome-tools-dropdown">
-                            <div class="tools-section">
-                                <div class="tools-section-title">MCP</div>
-                                <button class="tools-add-btn" onclick="showMcpDialog()">+ Add New MCP</button>
-                                <button class="tools-available-btn" onclick="showAvailableMcpTools()">Available MCP <i class="fas fa-chevron-right" style="float: right; margin-top: 2px;"></i></button>
-                            </div>
-                            
-                            <div class="separator"></div>
-                            
-                            <div class="tools-section">
-                                <div class="tools-section-title">Connectors</div>
-                                <button class="tools-add-btn" onclick="showConnectorDialog()">+ Add New Connectors</button>
-                                <button class="tools-available-btn" onclick="showAvailableConnectors()">Available Connectors</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -4723,9 +4638,6 @@
                     </button>
                     <button class="input-control-btn" id="mic-btn" title="Voice input">
                         <i class="fas fa-microphone"></i>
-                    </button>
-                    <button class="input-control-btn slider-btn" id="slider-btn" title="Settings & Options">
-                        <i class="fas fa-sliders-h"></i>
                     </button>
                 </div>
 
