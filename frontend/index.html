@@ -4435,6 +4435,7 @@
             }
         }
     </style>
+    <script src="js/live_voice_client.js"></script>
 </head>
 <body>
     <!-- Sidebar -->
@@ -6454,9 +6455,15 @@
             
             try {
                 if (language === 'javascript' || language === 'js') {
-                    // Create a sandbox for JavaScript execution
-                    const result = eval(code);
-                    outputDiv.textContent = result !== undefined ? String(result) : 'Code executed successfully';
+                    // Create a safer sandbox for JavaScript execution using Function constructor
+                    try {
+                        const func = new Function(code);
+                        const result = func();
+                        outputDiv.textContent = result !== undefined ? String(result) : 'Code executed successfully';
+                    } catch (err) {
+                        outputDiv.textContent = `Error: ${err.message}`;
+                        outputDiv.style.color = '#ff6b6b';
+                    }
                 } else if (language === 'html') {
                     // For HTML, create an iframe to render it
                     const iframe = document.createElement('iframe');
@@ -6954,62 +6961,7 @@
             contentDiv.innerHTML = html;
         }
 
-        function toggleDetailedThinking(messageId) {
-            const content = document.getElementById(`detailed-thinking-content-${messageId}`);
-            const toggle = document.getElementById(`detailed-thinking-toggle-${messageId}`);
-            content.classList.toggle('expanded');
-            toggle.classList.toggle('expanded');
-        }
-
-        function renderDetailedThinkingProcess(messageId, results) {
-            const container = document.getElementById(`detailed-thinking-container-${messageId}`);
-            const contentDiv = document.getElementById(`detailed-thinking-content-${messageId}`);
-            if (!container || !contentDiv) return;
-
-            // Make the container visible
-            container.style.display = 'block';
-            
-            let html = '';
-
-            // 1. Multi-Stage Reasoning
-            if (results.multi_stage_reasoning) {
-                html += `
-                    <div class="detail-section">
-                        <div class="detail-section-title">🧠 Multi-Stage Reasoning</div>
-                        <div class="detail-section-content">
-                            <strong>Analysis:</strong>
-                            <p>${results.multi_stage_reasoning.analysis}</p>
-                            <strong>Architecture:</strong>
-                            <p>${results.multi_stage_reasoning.architecture}</p>
-                            <strong>Implementation:</strong>
-                            <p>${results.multi_stage_reasoning.implementation}</p>
-                        </div>
-                    </div>
-                `;
-            }
-
-            // 2. Multi-Perspective Analysis
-            if (results.multi_perspective_analysis) {
-                html += `
-                    <div class="detail-section">
-                        <div class="detail-section-title">👁️ Multi-Perspective Analysis</div>
-                        <div class="detail-section-content">${results.multi_perspective_analysis}</div>
-                    </div>
-                `;
-            }
-
-            // 3. Enhanced Sequential Thinking
-            if (results.enhanced_sequential_thinking) {
-                html += `
-                    <div class="detail-section">
-                        <div class="detail-section-title">🔗 Enhanced Sequential Thinking</div>
-                        <div class="detail-section-content">${results.enhanced_sequential_thinking.thinking_process}</div>
-                    </div>
-                `;
-            }
-
-            contentDiv.innerHTML = html;
-        }
+        // Duplicate functions removed - keeping only the first declarations
 
         // Sidebar functionality
         function openSidebar() {
@@ -7945,27 +7897,174 @@
             }
         });
 
-        // Live Conversation Functions
-        function startLiveConversation() {
-            console.log('Starting live conversation...');
-            isLiveConversationActive = true;
-            liveConversationOverlay.classList.add('show');
-            initializeVoiceSphere();
-            initializeLiveAudio();
-            setupLiveControls();
-            updateConversationStatus('Ready', 'Click Start to begin your conversation');
+        // ============ SERVER-SIDE LIVE VOICE SYSTEM ============
+        // All processing happens on the server, no Socket.IO needed
+        
+        class LiveVoiceSystem {
+            constructor() {
+                this.client = null;
+                this.isActive = false;
+                this.isRecording = false;
+                this.sessionId = null;
+            }
             
-            // Show start button, hide others initially
-            // liveStartBtn removed - using mic button only
-            if (liveStopBtn) liveStopBtn.style.display = 'none';
+            async initialize() {
+                console.log('🎤 Initializing Server-Side Live Voice System...');
+                
+                try {
+                    // Create and initialize the server-side client
+                    if (window.ServerSideLiveVoiceClient) {
+                        this.client = new window.ServerSideLiveVoiceClient();
+                        const success = await this.client.initialize();
+                        
+                        if (success) {
+                            this.isActive = true;
+                            this.sessionId = this.client.sessionId;
+                            console.log('✅ Live Voice System initialized successfully');
+                            this.updateStatus('Ready', 'Click microphone to start talking');
+                            return true;
+                        }
+                    } else {
+                        throw new Error('Live Voice Client not loaded');
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to initialize Live Voice System:', error);
+                    this.showError(error.message);
+                    return false;
+                }
+            }
+            
+            
+            startRecording() {
+                if (!this.isActive || this.isRecording || !this.client) return;
+                
+                console.log('🔴 Starting recording...');
+                const success = this.client.startRecording();
+                
+                if (success) {
+                    this.isRecording = true;
+                    this.updateStatus('Recording', 'Listening to you...');
+                    
+                    // Update UI
+                    const micBtn = document.getElementById('live-mic-btn');
+                    if (micBtn) {
+                        micBtn.classList.add('recording');
+                    }
+                }
+            }
+            
+            stopRecording() {
+                if (!this.isRecording || !this.client) return;
+                
+                console.log('⏹️ Stopping recording...');
+                const success = this.client.stopRecording();
+                
+                if (success) {
+                    this.isRecording = false;
+                    this.updateStatus('Processing', 'Processing your message...');
+                    
+                    // Update UI
+                    const micBtn = document.getElementById('live-mic-btn');
+                    if (micBtn) {
+                        micBtn.classList.remove('recording');
+                    }
+                }
+            }
+            
+            async sendTextMessage(text) {
+                if (!this.isActive || !text.trim() || !this.client) return;
+                
+                console.log('📤 Sending text message:', text);
+                this.updateTranscription('You: ' + text);
+                
+                // Send via client (handles server-side processing)
+                await this.client.sendTextMessage(text);
+                
+                this.updateStatus('Waiting', 'Waiting for response...');
+            }
+            
+            updateStatus(title, subtitle) {
+                updateConversationStatus(title, subtitle);
+            }
+            
+            updateTranscription(text) {
+                const element = document.getElementById('transcription-text');
+                if (element) {
+                    element.textContent = text;
+                }
+            }
+            
+            showError(message) {
+                this.updateStatus('Error', message);
+                console.error('Live Voice Error:', message);
+            }
+            
+            async cleanup() {
+                console.log('🧹 Cleaning up Live Voice System...');
+                
+                // Stop recording if active
+                if (this.isRecording) {
+                    this.stopRecording();
+                }
+                
+                // End client session
+                if (this.client) {
+                    await this.client.end();
+                    this.client = null;
+                }
+                
+                this.isActive = false;
+                this.sessionId = null;
+                console.log('✅ Cleanup complete');
+            }
+        }
+        
+        // Global instance
+        let liveVoiceSystem = null;
+        
+        // Updated start function
+        async function startLiveConversation() {
+            console.log('Starting live conversation...');
+            
+            try {
+                // Show overlay
+                isLiveConversationActive = true;
+                liveConversationOverlay.classList.add('show');
+                
+                // Initialize voice sphere animation
+                initializeVoiceSphere();
+                
+                // Create and initialize live voice system
+                liveVoiceSystem = new LiveVoiceSystem();
+                const success = await liveVoiceSystem.initialize();
+                
+                if (success) {
+                    setupLiveControls();
+                    updateConversationStatus('Ready', 'Click microphone to start talking');
+                } else {
+                    throw new Error('Failed to initialize voice system');
+                }
+                
+            } catch (error) {
+                console.error('Failed to start live conversation:', error);
+                updateConversationStatus('Error', error.message);
+                // Close overlay on error
+                setTimeout(() => closeLiveConversation(), 3000);
+            }
         }
 
-        function closeLiveConversation() {
+        async function closeLiveConversation() {
             console.log('Closing live conversation...');
             isLiveConversationActive = false;
             liveConversationOverlay.classList.remove('show');
             
-            // Clean up audio resources
+            // Clean up live voice system
+            if (liveVoiceSystem) {
+                await liveVoiceSystem.cleanup();
+                liveVoiceSystem = null;
+            }
+            
+            // Clean up old audio resources (for compatibility)
             if (liveMediaStream) {
                 liveMediaStream.getTracks().forEach(track => track.stop());
                 liveMediaStream = null;
@@ -7976,8 +8075,7 @@
                 liveAudioContext = null;
             }
             
-            // ElevenLabs uses SocketIO, no separate WebSocket to close
-            
+            // Stop voice sphere animation
             if (voiceSphereSystem) {
                 voiceSphereSystem.stop();
                 voiceSphereSystem = null;
@@ -8045,81 +8143,20 @@
             console.log(`Status: ${title}${subtitle ? ` - ${subtitle}` : ''}`);
         }
 
+        // Legacy functions kept for compatibility - will be removed in future
         async function initializeLiveAudio() {
-            try {
-                // Get microphone access
-                liveMediaStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        sampleRate: 16000,
-                        channelCount: 1,
-                        echoCancellation: true,
-                        noiseSuppression: true
-                    } 
-                });
-                
-                // Create audio context for visualization
-                liveAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-                liveAnalyser = liveAudioContext.createAnalyser();
-                liveAnalyser.fftSize = 256;
-                
-                const source = liveAudioContext.createMediaStreamSource(liveMediaStream);
-                source.connect(liveAnalyser);
-                
-                // Initialize ElevenLabs Live API connection (wait for socket first)
-                await waitForSocketAndInitialize();
-                
-                updateConversationStatus('Ready', 'ElevenLabs AI agent is ready to listen and support you');
-                
-            } catch (error) {
-                console.error('Error initializing live audio:', error);
-                updateConversationStatus('Error', 'Could not access microphone');
-            }
+            // Now handled by LiveVoiceSystem class
+            console.log('Legacy initializeLiveAudio called - using new system');
         }
-
+        
         async function waitForSocketAndInitialize() {
-            // Wait for socket to be connected (max 10 seconds)
-            const maxWaitTime = 10000;
-            const startTime = Date.now();
-            
-            while ((!socket || !socket.connected) && (Date.now() - startTime) < maxWaitTime) {
-                console.log('⏳ Waiting for socket connection...');
-                updateConversationStatus('Connecting...', 'Establishing server connection');
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-            
-            if (!socket || !socket.connected) {
-                throw new Error('Failed to establish socket connection within 10 seconds');
-            }
-            
-            console.log('✅ Socket connected, initializing ElevenLabs...');
-            await initializeElevenLabsLive();
+            // Now handled by LiveVoiceSystem class
+            console.log('Legacy waitForSocketAndInitialize called - using new system');
         }
-
+        
         async function initializeElevenLabsLive() {
-            try {
-                console.log('Initializing ElevenLabs Conversational AI...');
-                updateConversationStatus('Connecting...', 'Establishing secure connection');
-                
-                // Check if socket is connected
-                if (!socket || !socket.connected) {
-                    throw new Error('Socket.IO connection not available');
-                }
-                
-                // Use SocketIO to start live session through backend
-                console.log('Starting ElevenLabs live session via SocketIO...');
-                const selectedVoice = getSelectedVoice();
-                socket.emit('live_session_start', {
-                    agent_id: 'default',  // Use default ElevenLabs agent
-                    voice_id: selectedVoice  // Use the selected voice
-                });
-                
-                console.log('✅ ElevenLabs Live session start request sent via SocketIO');
-                
-            } catch (error) {
-                console.error('❌ Error connecting to ElevenLabs Live:', error);
-                updateConversationStatus('Connection Error', error.message || 'Please try again later');
-                throw error;
-            }
+            // Now handled by LiveVoiceSystem class
+            console.log('Legacy initializeElevenLabsLive called - using new system');
         }
 
         // ElevenLabs uses SocketIO connection - no need for separate token management
@@ -8228,11 +8265,17 @@
                 
                 console.log('🎤 Sending audio for STT processing');
                 
-                // Send to backend for STT processing
-                socket.emit('live_send_audio', {
-                    session_id: liveSessionId,
-                    audio_data: audioBase64
-                });
+                // Send to backend for STT processing - check if socket is connected
+                if (socket && socket.connected) {
+                    socket.emit('live_send_audio', {
+                        session_id: liveSessionId,
+                        audio_data: audioBase64
+                    });
+                    console.log('🎵 Audio sent to server for STT processing');
+                } else {
+                    console.warn('⚠️ Socket not connected - cannot send audio');
+                    updateTranscriptionText('⚠️ Connection lost - please refresh page');
+                }
                 
                 updateConversationStatus('Processing...', 'Converting speech to text');
                 
@@ -8935,12 +8978,20 @@
         }
 
         function toggleLiveRecording() {
-            // Check if socket is connected before starting recording
-            if (!socket || !socket.connected) {
-                console.warn('⚠️ Socket not connected - cannot start recording');
-                updateTranscriptionText('⚠️ Connection lost - please refresh page to reconnect');
+            if (!liveVoiceSystem || !liveVoiceSystem.isActive) {
+                console.warn('Live voice system not active');
+                updateConversationStatus('Error', 'System not ready');
                 return;
             }
+            
+            // Toggle recording state
+            if (liveVoiceSystem.isRecording) {
+                liveVoiceSystem.stopRecording();
+            } else {
+                liveVoiceSystem.startRecording();
+            }
+            
+            return; // Early return to skip old implementation
             
             if (isLiveRecording) {
                 // Manual stop - process the recording
@@ -9178,11 +9229,17 @@
                 }
                 const base64Audio = btoa(binaryString);
                 
-                // Send to STT
-                socket.emit('live_send_audio', {
-                    audio_data: base64Audio,
-                    format: 'wav'
-                });
+                // Send to STT - check if socket is connected
+                if (socket && socket.connected) {
+                    socket.emit('live_send_audio', {
+                        audio_data: base64Audio,
+                        format: 'wav'
+                    });
+                    console.log('🎵 Audio sent to server for processing');
+                } else {
+                    console.warn('⚠️ Socket not connected - cannot send audio');
+                    updateTranscriptionText('⚠️ Connection lost - please refresh page');
+                }
                 
                 audioBuffer = [];
                 
@@ -9604,8 +9661,7 @@
             };
         }
 
-        // Initialize Socket.IO connection for live conversation
-        let socket = null;
+        // Live conversation variables
         let currentSessionId = null;
         let sessionActive = false;
 
@@ -10213,9 +10269,19 @@
             });
         }
 
-        // Initialize socket connection with low-latency optimizations
+        // Removed Socket.IO initialization - now using server-side processing
         function initializeSocket() {
-            socket = io({
+            // Always connect to the Flask server on port 8003
+            const serverUrl = 'http://localhost:8003';
+            console.log('Connecting to Socket.IO server at:', serverUrl);
+            
+            // Check if io is available
+            if (typeof io === 'undefined') {
+                console.error('Socket.IO library not loaded!');
+                throw new Error('Socket.IO library not loaded');
+            }
+            
+            window.socket = socket = io(serverUrl, {
                 transports: ['websocket', 'polling'], // Prioritize websocket
                 upgrade: true, // Allow upgrading to websocket
                 rememberUpgrade: true, // Remember the upgrade
@@ -10766,7 +10832,6 @@
     </div>
 
     <!-- Socket.IO Client -->
-    <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
 <script>
 class CodeCanvas {
     constructor() {
@@ -10832,9 +10897,10 @@ class CodeCanvas {
             outputPanel.textContent = 'Python execution requires backend service...';
             this.switchTab('output');
         } else if (this.currentLanguage === 'javascript') {
-            // Execute JavaScript safely
+            // Execute JavaScript more safely using Function constructor
             try {
-                const result = eval(code);
+                const func = new Function(code);
+                const result = func();
                 outputPanel.textContent = `Output: ${result}`;
             } catch (error) {
                 outputPanel.textContent = `Error: ${error.message}`;
