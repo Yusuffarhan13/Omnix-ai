@@ -8065,8 +8065,8 @@
                 const source = liveAudioContext.createMediaStreamSource(liveMediaStream);
                 source.connect(liveAnalyser);
                 
-                // Initialize ElevenLabs Live API connection
-                await initializeElevenLabsLive();
+                // Initialize ElevenLabs Live API connection (wait for socket first)
+                await waitForSocketAndInitialize();
                 
                 updateConversationStatus('Ready', 'ElevenLabs AI agent is ready to listen and support you');
                 
@@ -8074,6 +8074,25 @@
                 console.error('Error initializing live audio:', error);
                 updateConversationStatus('Error', 'Could not access microphone');
             }
+        }
+
+        async function waitForSocketAndInitialize() {
+            // Wait for socket to be connected (max 10 seconds)
+            const maxWaitTime = 10000;
+            const startTime = Date.now();
+            
+            while ((!socket || !socket.connected) && (Date.now() - startTime) < maxWaitTime) {
+                console.log('⏳ Waiting for socket connection...');
+                updateConversationStatus('Connecting...', 'Establishing server connection');
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            if (!socket || !socket.connected) {
+                throw new Error('Failed to establish socket connection within 10 seconds');
+            }
+            
+            console.log('✅ Socket connected, initializing ElevenLabs...');
+            await initializeElevenLabsLive();
         }
 
         async function initializeElevenLabsLive() {
@@ -8503,8 +8522,8 @@
                             // Request microphone permission first
                             await navigator.mediaDevices.getUserMedia({ audio: true });
                             
-                            // Initialize ElevenLabs Live session
-                            await initializeElevenLabsLive();
+                            // Initialize ElevenLabs Live session (wait for socket first)
+                            await waitForSocketAndInitialize();
                         } catch (error) {
                             console.error('Error starting live session:', error);
                             updateConversationStatus('Permission Required', 'Please allow microphone access');
@@ -8916,6 +8935,13 @@
         }
 
         function toggleLiveRecording() {
+            // Check if socket is connected before starting recording
+            if (!socket || !socket.connected) {
+                console.warn('⚠️ Socket not connected - cannot start recording');
+                updateTranscriptionText('⚠️ Connection lost - please refresh page to reconnect');
+                return;
+            }
+            
             if (isLiveRecording) {
                 // Manual stop - process the recording
                 console.log('🛑 Manual stop - processing recording');
@@ -9270,11 +9296,17 @@
                 }
                 const base64Audio = btoa(binaryString);
                 
-                // Send to STT
-                socket.emit('live_send_audio', {
-                    audio_data: base64Audio,
-                    format: 'webm'
-                });
+                // Send to STT - check if socket is connected
+                if (socket && socket.connected) {
+                    socket.emit('live_send_audio', {
+                        audio_data: base64Audio,
+                        format: 'webm'
+                    });
+                    console.log('🎵 Audio sent to server for processing');
+                } else {
+                    console.warn('⚠️ Socket not connected - cannot send audio');
+                    updateTranscriptionText('⚠️ Connection lost - please refresh page');
+                }
                 
             } catch (error) {
                 console.error('Error processing audio blob:', error);

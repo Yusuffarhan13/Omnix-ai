@@ -89,7 +89,7 @@ class SupabaseLogoService:
             self.logger.info(f"✅ Successfully loaded {logo_name} from Supabase Storage")
             return data_url
             
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.DNSError) as e:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.RequestException) as e:
             self.logger.warning(f"⚠️ Network issue fetching {logo_name}: Supabase unavailable")
             return None
         except Exception as e:
