@@ -20,7 +20,8 @@ typing-extensions
 gunicorn
 eventlet
 openai
-whisper
+openai-whisper
+torch
 praisonaiagents
 browserbase
 docker
