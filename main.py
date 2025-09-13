@@ -1145,15 +1145,17 @@ def get_screenshot_image(task_id, step):
 def research_agent():
     data = request.get_json()
     query = data.get('query', '').strip()
+    use_deep_research = data.get('use_deep_research', False)  # Get deep research flag
     if not query: return jsonify({'error': 'Query cannot be empty'}), 400
     
     try:
-        # Use Perplexity Sonar Deep Research if available
+        # Use Perplexity Sonar Research (regular or deep) if available
         if enhanced_research_manager:
-            app.logger.info(f"🔍 Using Perplexity Sonar Deep Research for: {query}")
+            research_type = "Deep Research" if use_deep_research else "Regular Research"
+            app.logger.info(f"🔍 Using Perplexity {research_type} for: {query}")
             
-            # Use synchronous method for Flask context
-            result = enhanced_research_manager.conduct_research_sync(query)
+            # Use synchronous method for Flask context with deep research flag
+            result = enhanced_research_manager.conduct_research_sync(query, use_deep_research=use_deep_research)
             
             if result['success']:
                 # Format response for frontend
@@ -1163,7 +1165,8 @@ def research_agent():
                     "insights": result['key_insights'],
                     "confidence": result['confidence_score'],
                     "source_count": len(result['sources']),
-                    "metadata": result.get('metadata', {})
+                    "metadata": result.get('metadata', {}),
+                    "research_type": result.get('research_type', 'unknown')
                 })
             else:
                 app.logger.warning(f"Perplexity research failed: {result.get('error', 'Unknown error')}")
@@ -1390,10 +1393,11 @@ def stream_complex_task(prompt, request_data):
 
 @app.route('/enhanced_research', methods=['POST'])
 def enhanced_research_agent():
-    """Enhanced research with multi-source analysis and fact-checking"""
+    """Enhanced research using Perplexity Sonar (regular or deep)"""
     data = request.get_json()
     query = data.get('query', '').strip()
-    research_type = data.get('type', 'comprehensive')  # comprehensive, fact_check, comparative
+    research_type = data.get('type', 'comprehensive')  # For compatibility
+    use_deep_research = data.get('use_deep_research', True)  # Default to deep for enhanced endpoint
     
     if not query:
         return jsonify({'error': 'Query cannot be empty'}), 400
@@ -1407,10 +1411,11 @@ def enhanced_research_agent():
     
     try:
         if enhanced_research_manager:
-            app.logger.info(f"🔍 Processing Perplexity Deep Research: {query}")
+            research_mode = "Deep Research" if use_deep_research else "Regular Research"
+            app.logger.info(f"🔍 Processing Perplexity {research_mode}: {query}")
             
-            # Perplexity Sonar Deep Research handles all research types comprehensively
-            result = enhanced_research_manager.conduct_research_sync(query)
+            # Perplexity Sonar Research with deep/regular mode
+            result = enhanced_research_manager.conduct_research_sync(query, use_deep_research=use_deep_research)
             
             if result['success']:
                 return jsonify({
@@ -2524,29 +2529,35 @@ async def execute_browser_use_cloud_task(task_id, task_description, continue_ses
         research_keywords = ['research', 'find out', 'look up', 'search for', 'what is', 'how to', 'information about', 'learn about']
         needs_research = any(keyword in task_description.lower() for keyword in research_keywords)
         
+        # Check if deep research is specifically requested
+        use_deep_research = 'deep research' in task_description.lower() or 'deepresearch' in task_description.lower()
+        
         enhanced_task_description = task_description
         
         if needs_research and enhanced_research_manager:
+            # Determine research mode
+            research_mode = "Deep Research" if use_deep_research else "Regular Research"
+            
             # Notify user that research mode is being used
-            logging.info(f"🔍 Task requires research, using Perplexity Deep Research mode")
+            logging.info(f"🔍 Task requires research, using Perplexity {research_mode} mode")
             socketio.emit('task_step', {
                 'task_id': task_id,
                 'step': 0,
                 'action': 'research_start',
-                'description': '🔍 Using researcher mode to research and find answers...',
+                'description': f'🔍 Using {research_mode.lower()} mode to research and find answers...',
                 'current_url': ''
             })
             
             # Extract the research query from the task description
             research_query = task_description
             # Remove common browser task prefixes
-            for prefix in ['research and', 'find out', 'look up', 'search for']:
+            for prefix in ['deep research and', 'deep research', 'research and', 'find out', 'look up', 'search for']:
                 if research_query.lower().startswith(prefix):
                     research_query = research_query[len(prefix):].strip()
             
             # Perform research using Perplexity
             try:
-                research_result = enhanced_research_manager.conduct_research_sync(research_query)
+                research_result = enhanced_research_manager.conduct_research_sync(research_query, use_deep_research=use_deep_research)
                 
                 if research_result['success']:
                     # Format research results for the browser task

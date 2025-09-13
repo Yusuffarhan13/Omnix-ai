@@ -1598,39 +1598,6 @@
             color: #c17b47;
         }
 
-        /* Deep Research Toggle Button */
-        .deep-research-toggle {
-            width: auto !important;
-            padding: 0 10px !important;
-            gap: 4px;
-            background: #f8f8f8 !important;
-            border: 1px solid #e5e5e5 !important;
-            transition: all 0.3s ease;
-        }
-
-        .deep-research-toggle.active {
-            background: #c17b47 !important;
-            border-color: #c17b47 !important;
-            color: white !important;
-        }
-
-        .deep-research-toggle .deep-research-label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .deep-research-toggle i {
-            font-size: 14px;
-        }
-
-        .deep-research-toggle:hover:not(.active) {
-            background: #f0f0f0 !important;
-            border-color: #c17b47 !important;
-            color: #c17b47 !important;
-        }
-
         .model-selector-wrapper {
             position: relative;
             display: inline-block;
@@ -4675,14 +4642,8 @@
                     </button>
                 </div>
 
-                <!-- Right Controls (Deep Research Toggle, Model Selector, Send) -->
+                <!-- Right Controls (Model Selector, Send) -->
                 <div class="input-right-controls">
-                    <!-- Deep Research Toggle (only visible in research mode) -->
-                    <button class="input-control-btn deep-research-toggle" id="deep-research-toggle" title="Toggle Deep Research" style="display: none;">
-                        <i class="fas fa-microscope"></i>
-                        <span class="deep-research-label">Deep</span>
-                    </button>
-                    
                     <div class="model-selector-wrapper">
                         <button class="input-control-btn model-selector-btn" id="chat-model-selector" title="Select AI Model">
                             <span id="chat-selected-model">Omnix Flash</span>
@@ -5175,7 +5136,6 @@
         let mediaRecorder = null;
         let audioStream = null;
         let recognition = null;
-        let useDeepResearch = false; // Track deep research mode
         let sliderSettings = {
             mode: 'chat',
             style: 'auto',
@@ -5352,26 +5312,6 @@
                 chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
             });
 
-            // Deep Research Toggle
-            const deepResearchToggle = document.getElementById('deep-research-toggle');
-            if (deepResearchToggle) {
-                deepResearchToggle.addEventListener('click', () => {
-                    useDeepResearch = !useDeepResearch;
-                    deepResearchToggle.classList.toggle('active', useDeepResearch);
-                    
-                    // Update button text
-                    const label = deepResearchToggle.querySelector('.deep-research-label');
-                    if (label) {
-                        label.textContent = useDeepResearch ? 'Deep' : 'Regular';
-                    }
-                    
-                    // Update tooltip
-                    deepResearchToggle.title = useDeepResearch ? 
-                        'Deep Research Mode (Comprehensive but slower)' : 
-                        'Regular Research Mode (Fast)';
-                });
-            }
-            
             // Sidebar events
             miniExpand.addEventListener('click', openSidebar);
             sidebarClose.addEventListener('click', closeSidebar);
@@ -5683,16 +5623,6 @@
             currentMode = mode;
             showChatInterface();
             
-            // Show/hide deep research toggle button
-            const deepResearchToggle = document.getElementById('deep-research-toggle');
-            if (deepResearchToggle) {
-                if (mode === 'research') {
-                    deepResearchToggle.style.display = 'flex';
-                } else {
-                    deepResearchToggle.style.display = 'none';
-                }
-            }
-            
             // Show/hide Omnix Maxima indicator for complex mode
             const omnixIndicator = document.getElementById('omnix-maxima-indicator');
             if (omnixIndicator) {
@@ -5797,10 +5727,7 @@
                 
                 if (currentMode === 'research') {
                     endpoint = '/research';
-                    body = { 
-                        query: message,
-                        use_deep_research: useDeepResearch 
-                    };
+                    body = { query: message };
                 }
                 
                 const response = await fetch(endpoint, {
@@ -6334,45 +6261,24 @@
             summaryP.innerHTML = marked.parse(summaryString);
             contentDiv.appendChild(summaryP);
             
-            // Add sources section
+            // Add sources
             if (sources && sources.length > 0) {
-                const sourcesDiv = document.createElement('div');
-                sourcesDiv.style.cssText = `
-                    margin-top: 1.5rem;
-                    padding: 1rem;
-                    background: rgba(248, 249, 250, 0.9);
-                    border-radius: 8px;
-                    border: 1px solid rgba(193, 123, 71, 0.2);
-                `;
+                const sourcesTitle = document.createElement('p');
+                sourcesTitle.innerHTML = '<strong>Sources:</strong>';
+                sourcesTitle.style.marginTop = '1rem';
+                contentDiv.appendChild(sourcesTitle);
                 
-                const sourcesTitle = document.createElement('h4');
-                sourcesTitle.textContent = '📚 Sources';
-                sourcesTitle.style.cssText = 'margin: 0 0 0.75rem 0; color: #c17b47; font-size: 1rem;';
-                sourcesDiv.appendChild(sourcesTitle);
-                
-                sources.forEach((source, index) => {
-                    const sourceItem = document.createElement('div');
-                    sourceItem.style.cssText = 'margin-bottom: 0.5rem; display: flex; align-items: start; gap: 0.5rem;';
-                    
-                    const sourceNumber = document.createElement('span');
-                    sourceNumber.textContent = `[${index + 1}]`;
-                    sourceNumber.style.cssText = 'color: #c17b47; font-weight: bold;';
-                    
+                sources.forEach(source => {
                     const sourceLink = document.createElement('a');
-                    sourceLink.href = source.url || '#';
+                    sourceLink.href = source.url;
                     sourceLink.target = '_blank';
-                    sourceLink.rel = 'noopener noreferrer';
-                    sourceLink.textContent = source.title || `Source ${index + 1}`;
-                    sourceLink.style.cssText = 'color: #007bff; text-decoration: none;';
-                    sourceLink.onmouseover = () => sourceLink.style.textDecoration = 'underline';
-                    sourceLink.onmouseout = () => sourceLink.style.textDecoration = 'none';
-                    
-                    sourceItem.appendChild(sourceNumber);
-                    sourceItem.appendChild(sourceLink);
-                    sourcesDiv.appendChild(sourceItem);
+                    sourceLink.textContent = source.title;
+                    sourceLink.style.display = 'block';
+                    sourceLink.style.color = '#c17b47';
+                    sourceLink.style.textDecoration = 'underline';
+                    sourceLink.style.marginBottom = '0.25rem';
+                    contentDiv.appendChild(sourceLink);
                 });
-                
-                contentDiv.appendChild(sourcesDiv);
             }
             
             messageDiv.appendChild(header);
@@ -6406,9 +6312,10 @@
                     
                     const metadataContent = [];
                     if (sourceCount) metadataContent.push(`📚 ${sourceCount} sources analyzed`);
-                    metadataContent.push(`🔍 Deep research completed`);
+                    if (confidence) metadataContent.push(`🎯 ${Math.round(confidence * 100)}% confidence`);
+                    metadataContent.push(`🧠 Sequential thinking applied`);
                     
-                    metadataDiv.innerHTML = `<strong>Research Summary:</strong> ${metadataContent.join(' • ')}`;
+                    metadataDiv.innerHTML = `<strong>🔍 Comprehensive Research:</strong> ${metadataContent.join(' • ')}`;
                     contentDiv.appendChild(metadataDiv);
                 }
                 
@@ -6446,94 +6353,6 @@
                     
                     insightsDiv.appendChild(insightsList);
                     contentDiv.appendChild(insightsDiv);
-                }
-                
-                // Add sources section at the end
-                if (sources && sources.length > 0) {
-                    const sourcesDiv = document.createElement('div');
-                    sourcesDiv.style.cssText = `
-                        margin: 1.5rem 0 0 0;
-                        padding: 1rem;
-                        background: rgba(248, 249, 250, 0.9);
-                        border-radius: 8px;
-                        border: 1px solid rgba(193, 123, 71, 0.2);
-                    `;
-                    
-                    const sourcesTitle = document.createElement('h4');
-                    sourcesTitle.textContent = '📖 Sources';
-                    sourcesTitle.style.cssText = 'margin: 0 0 0.75rem 0; color: #c17b47; font-size: 1.1rem;';
-                    sourcesDiv.appendChild(sourcesTitle);
-                    
-                    const sourcesList = document.createElement('div');
-                    sourcesList.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-                    
-                    sources.forEach((source, index) => {
-                        const sourceItem = document.createElement('div');
-                        sourceItem.style.cssText = `
-                            display: flex;
-                            align-items: flex-start;
-                            gap: 0.5rem;
-                            padding: 0.5rem;
-                            background: white;
-                            border-radius: 4px;
-                            transition: all 0.2s ease;
-                        `;
-                        
-                        const sourceNumber = document.createElement('span');
-                        sourceNumber.textContent = `[${index + 1}]`;
-                        sourceNumber.style.cssText = `
-                            color: #c17b47;
-                            font-weight: bold;
-                            min-width: 30px;
-                        `;
-                        
-                        const sourceLink = document.createElement('a');
-                        sourceLink.href = source.url || '#';
-                        sourceLink.target = '_blank';
-                        sourceLink.rel = 'noopener noreferrer';
-                        sourceLink.textContent = source.title || `Source ${index + 1}`;
-                        sourceLink.style.cssText = `
-                            color: #007bff;
-                            text-decoration: none;
-                            flex: 1;
-                            word-break: break-word;
-                        `;
-                        sourceLink.onmouseover = () => {
-                            sourceLink.style.textDecoration = 'underline';
-                            sourceItem.style.background = '#f8f9fa';
-                        };
-                        sourceLink.onmouseout = () => {
-                            sourceLink.style.textDecoration = 'none';
-                            sourceItem.style.background = 'white';
-                        };
-                        
-                        if (source.snippet) {
-                            const snippetDiv = document.createElement('div');
-                            snippetDiv.textContent = source.snippet;
-                            snippetDiv.style.cssText = `
-                                color: #666;
-                                font-size: 0.85rem;
-                                margin-top: 0.25rem;
-                                line-height: 1.4;
-                            `;
-                            
-                            const linkContainer = document.createElement('div');
-                            linkContainer.style.cssText = 'flex: 1;';
-                            linkContainer.appendChild(sourceLink);
-                            linkContainer.appendChild(snippetDiv);
-                            
-                            sourceItem.appendChild(sourceNumber);
-                            sourceItem.appendChild(linkContainer);
-                        } else {
-                            sourceItem.appendChild(sourceNumber);
-                            sourceItem.appendChild(sourceLink);
-                        }
-                        
-                        sourcesList.appendChild(sourceItem);
-                    });
-                    
-                    sourcesDiv.appendChild(sourcesList);
-                    contentDiv.appendChild(sourcesDiv);
                 }
                 
                 messageDiv.appendChild(contentDiv);
@@ -7062,7 +6881,7 @@
                     loadingText.innerHTML = `
                         🔍 Conducting comprehensive research...<br>
                         <span style="font-size: 0.8rem; color: #888; margin-top: 0.5rem; display: block;">
-                            • Conducting deep research • Analyzing multiple sources • Synthesizing information
+                            • Searching 25-100+ sources • Applying sequential thinking • Analyzing credibility
                         </span>
                     `;
                 }
@@ -9598,39 +9417,7 @@
         }
 
         function showSources() {
-            // Scroll to the last research message with sources
-            const messages = document.querySelectorAll('.message');
-            for (let i = messages.length - 1; i >= 0; i--) {
-                const sourcesSection = messages[i].querySelector('[style*="Sources"]');
-                if (sourcesSection) {
-                    sourcesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Highlight the sources section briefly
-                    const originalBg = sourcesSection.style.background;
-                    sourcesSection.style.background = 'rgba(193, 123, 71, 0.2)';
-                    setTimeout(() => {
-                        sourcesSection.style.background = originalBg;
-                    }, 1500);
-                    return;
-                }
-            }
-            
-            // If no sources found, show info message
-            const infoDiv = document.createElement('div');
-            infoDiv.style.cssText = `
-                position: fixed;
-                bottom: 100px;
-                right: 20px;
-                background: #c17b47;
-                color: white;
-                padding: 1rem;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                z-index: 1000;
-                max-width: 300px;
-            `;
-            infoDiv.textContent = 'No sources available. Sources are shown after research queries.';
-            document.body.appendChild(infoDiv);
-            setTimeout(() => infoDiv.remove(), 3000);
+            alert('Sources feature coming soon!\n\nThis will show the references and sources that the AI uses to generate responses.');
         }
 
         function updateTranscription(text, isListening = false) {
@@ -9890,6 +9677,8 @@
         }
 
         function switchSettingsSection(sectionName) {
+            console.log('Switching to section:', sectionName);
+            
             // Hide all sections
             document.querySelectorAll('.settings-section').forEach(section => {
                 section.classList.remove('active');
@@ -9902,8 +9691,12 @@
             
             // Show selected section
             const targetSection = document.getElementById(sectionName + '-section');
+            console.log('Target section:', sectionName + '-section', 'Found:', !!targetSection);
             if (targetSection) {
                 targetSection.classList.add('active');
+                console.log('Section activated:', sectionName);
+            } else {
+                console.error('Section not found:', sectionName + '-section');
             }
             
             // Add active to selected nav item
@@ -10431,9 +10224,17 @@
             
             // Navigation event listeners
             document.querySelectorAll('.settings-nav-item').forEach(item => {
-                item.addEventListener('click', () => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const section = item.getAttribute('data-section');
-                    switchSettingsSection(section);
+                    console.log('Settings nav item clicked:', section);
+                    
+                    if (typeof switchSettingsSection === 'function') {
+                        switchSettingsSection(section);
+                    } else {
+                        console.error('switchSettingsSection function not found');
+                    }
                 });
             });
             
@@ -10837,8 +10638,8 @@
 
         // Initialize socket when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize socket after other initializations
-            setTimeout(initializeSocket, 1000);
+            // Initialize socket immediately
+            initializeSocket();
             
             // Initialize model dropdown
             initializeModelDropdown();
@@ -10973,8 +10774,8 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize socket after other initializations
-            setTimeout(initializeSocket, 1000);
+            // Initialize socket immediately
+            initializeSocket();
             
             // Initialize settings modal
             initializeSettingsModal();

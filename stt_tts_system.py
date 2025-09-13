@@ -14,6 +14,8 @@ import json
 import time
 from typing import Optional, Callable, Dict, Any
 import aiohttp
+import whisper
+import torch
 
 # Google Cloud Speech-to-Text
 try:
@@ -28,7 +30,7 @@ except ImportError:
 # but are referenced in the status for completeness, assuming they might be
 # handled elsewhere or are conceptual flags.
 # For this file, we'll just define them as False to avoid NameError.
-WHISPER_LOCAL_AVAILABLE = False
+WHISPER_LOCAL_AVAILABLE = True  # We now have Whisper available
 SPEECH_RECOGNITION_AVAILABLE = False
 
 
@@ -135,6 +137,67 @@ class GoogleCloudSTTProcessor:
                 
         except Exception as e:
             self.logger.error(f"❌ Google Cloud STT error: {e}")
+            return None
+
+
+class WhisperSTTProcessor:
+    """Local Whisper Speech-to-Text processor using OpenAI Whisper medium model"""
+    
+    def __init__(self, model_name: str = "medium"):
+        self.model_name = model_name
+        self.model = None
+        self.logger = logging.getLogger(__name__)
+        
+        # Check if CUDA is available
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.logger.info(f"🎯 Whisper will use device: {self.device}")
+        
+        # Load the model
+        try:
+            self.logger.info(f"📥 Loading Whisper {model_name} model...")
+            self.model = whisper.load_model(model_name, device=self.device)
+            self.logger.info(f"✅ Whisper {model_name} model loaded successfully")
+        except Exception as e:
+            self.logger.error(f"❌ Failed to load Whisper model: {e}")
+            raise e
+    
+    async def transcribe_audio(self, audio_data: bytes) -> Optional[str]:
+        """Transcribe audio using local Whisper model"""
+        if not self.model:
+            self.logger.error("❌ Whisper model not loaded")
+            return None
+        
+        try:
+            # Save audio to temporary file
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+                temp_file.write(audio_data)
+                temp_file.flush()
+                
+                try:
+                    # Run transcription in a thread to avoid blocking
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    
+                    def transcribe_sync():
+                        result = self.model.transcribe(temp_file.name, language="en")
+                        return result["text"].strip()
+                    
+                    # Run in thread pool to avoid blocking the event loop
+                    transcript = await loop.run_in_executor(None, transcribe_sync)
+                    
+                    self.logger.info(f"🎤 Whisper transcription: {transcript}")
+                    return transcript
+                    
+                finally:
+                    # Clean up temporary file
+                    try:
+                        os.unlink(temp_file.name)
+                    except OSError:
+                        pass
+                        
+        except Exception as e:
+            self.logger.error(f"❌ Whisper transcription error: {e}")
             return None
 
 
@@ -331,19 +394,25 @@ class STTTTSManager:
     def __init__(self, elevenlabs_api_key: str, voice_id: str = None):
         self.logger = logging.getLogger(__name__)
         
-        # Initialize STT (ElevenLabs STT with fallback to Google Cloud)
+        # Initialize STT (Whisper local with fallbacks)
         try:
-            self.stt_processor = ElevenLabsSTTProcessor(elevenlabs_api_key)
-            self.logger.info("✅ Using ElevenLabs STT for better quality")
+            self.stt_processor = WhisperSTTProcessor("base")
+            self.logger.info("✅ Using local Whisper base model for STT")
         except Exception as e:
-            self.logger.warning(f"⚠️ ElevenLabs STT not available: {e}")
-            # Fallback to Google Cloud STT
-            self.stt_processor = GoogleCloudSTTProcessor()
-            if not self.stt_processor.client:
-                self.logger.error("❌ No STT processor available")
-                self.stt_processor = None
-            else:
-                self.logger.info("📞 Using Google Cloud STT as fallback")
+            self.logger.warning(f"⚠️ Whisper STT not available: {e}")
+            # Fallback to ElevenLabs STT
+            try:
+                self.stt_processor = ElevenLabsSTTProcessor(elevenlabs_api_key)
+                self.logger.info("📞 Using ElevenLabs STT as fallback")
+            except Exception as e2:
+                self.logger.warning(f"⚠️ ElevenLabs STT not available: {e2}")
+                # Final fallback to Google Cloud STT
+                self.stt_processor = GoogleCloudSTTProcessor()
+                if not self.stt_processor.client:
+                    self.logger.error("❌ No STT processor available")
+                    self.stt_processor = None
+                else:
+                    self.logger.info("☁️ Using Google Cloud STT as final fallback")
         
         # Initialize TTS
         try:
@@ -424,6 +493,27 @@ class STTTTSManager:
             self.logger.error(f"❌ Speech generation error: {e}")
             if self.on_error:
                 self.on_error(str(e))
+            return None
+    
+    def transcribe_audio_sync(self, audio_data: bytes, mime_type: str = "audio/wav") -> Optional[str]:
+        """Synchronous audio transcription method"""
+        if not self.stt_processor:
+            self.logger.error("❌ No STT processor available")
+            return None
+        
+        try:
+            # Use asyncio to run the async method synchronously
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                transcript = loop.run_until_complete(self.stt_processor.transcribe_audio(audio_data))
+                return transcript
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            self.logger.error(f"❌ Audio transcription error: {e}")
             return None
     
     def is_available(self) -> bool:

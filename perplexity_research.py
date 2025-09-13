@@ -35,45 +35,54 @@ class PerplexityResearchManager:
             "Content-Type": "application/json"
         }
         
-        # Model configuration
-        self.model = "sonar-deep-research"
+        # Model configuration - supports both regular and deep research
+        self.deep_research_model = "sonar-deep-research"
+        self.regular_model = "sonar"  # Regular Sonar model
+        self.default_model = self.regular_model  # Default to regular for cost efficiency
         
         # Cache for research results (optional)
         self.cache = {}
         self.cache_duration = 3600  # Cache for 1 hour
         
-        logger.info("✅ Perplexity Sonar Deep Research Manager initialized")
+        logger.info("✅ Perplexity Research Manager initialized (supports both regular and deep research)")
     
     async def conduct_research(
         self, 
         query: str,
         use_cache: bool = True,
-        stream: bool = False
+        stream: bool = False,
+        use_deep_research: bool = False
     ) -> Dict[str, Any]:
         """
-        Conduct deep research using Perplexity's Sonar Deep Research API
+        Conduct research using Perplexity's Sonar API (regular or deep research)
         
         Args:
             query: The research query
             use_cache: Whether to use cached results if available
             stream: Whether to stream the response
+            use_deep_research: Whether to use deep research model (more comprehensive but slower)
             
         Returns:
             Dictionary containing research results
         """
         try:
+            # Determine which model to use
+            model = self.deep_research_model if use_deep_research else self.regular_model
+            cache_key = f"{model}:{query}"
+            
             # Check cache first
-            if use_cache and query in self.cache:
-                cached_result = self.cache[query]
+            if use_cache and cache_key in self.cache:
+                cached_result = self.cache[cache_key]
                 if (datetime.now() - cached_result['timestamp']).seconds < self.cache_duration:
                     logger.info(f"📦 Returning cached result for: {query}")
                     return cached_result['data']
             
-            logger.info(f"🔍 Starting Perplexity Deep Research for: {query}")
+            research_type = "Deep Research" if use_deep_research else "Regular Research"
+            logger.info(f"🔍 Starting Perplexity {research_type} for: {query}")
             
             # Prepare the request payload
             payload = {
-                "model": self.model,
+                "model": model,
                 "messages": [
                     {
                         "role": "system",
@@ -101,11 +110,11 @@ class PerplexityResearchManager:
                     result = await response.json()
                     
                     # Process the response
-                    processed_result = self._process_research_response(result, query)
+                    processed_result = self._process_research_response(result, query, model, use_deep_research)
                     
                     # Cache the result
                     if use_cache:
-                        self.cache[query] = {
+                        self.cache[cache_key] = {
                             'timestamp': datetime.now(),
                             'data': processed_result
                         }
@@ -116,13 +125,15 @@ class PerplexityResearchManager:
             logger.error(f"❌ Research error: {str(e)}")
             return self._create_error_response(str(e))
     
-    def _process_research_response(self, response: Dict, query: str) -> Dict[str, Any]:
+    def _process_research_response(self, response: Dict, query: str, model: str, use_deep_research: bool) -> Dict[str, Any]:
         """
         Process the raw API response into a structured format
         
         Args:
             response: Raw API response from Perplexity
             query: Original query for context
+            model: The model used for research
+            use_deep_research: Whether deep research was used
             
         Returns:
             Processed research results
@@ -150,7 +161,8 @@ class PerplexityResearchManager:
                 'sources': self._extract_sources(citations),
                 'key_insights': self._extract_key_insights(content),
                 'timestamp': datetime.now().isoformat(),
-                'model': self.model,
+                'model': model,
+                'research_type': 'deep' if use_deep_research else 'regular',
                 'confidence_score': None,  # Not displaying confidence scores
                 'metadata': {
                     'total_tokens': response.get('usage', {}).get('total_tokens', 0),
@@ -246,17 +258,18 @@ class PerplexityResearchManager:
             'sources': [],
             'key_insights': [],
             'timestamp': datetime.now().isoformat(),
-            'model': self.model,
+            'model': self.default_model,
             'confidence_score': 0
         }
     
-    def conduct_research_sync(self, query: str, use_cache: bool = True) -> Dict[str, Any]:
+    def conduct_research_sync(self, query: str, use_cache: bool = True, use_deep_research: bool = False) -> Dict[str, Any]:
         """
         Synchronous wrapper for conduct_research
         
         Args:
             query: The research query
             use_cache: Whether to use cached results
+            use_deep_research: Whether to use deep research model
             
         Returns:
             Research results
@@ -265,7 +278,7 @@ class PerplexityResearchManager:
             # Create new event loop for sync context
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(self.conduct_research(query, use_cache))
+            result = loop.run_until_complete(self.conduct_research(query, use_cache, use_deep_research=use_deep_research))
             return result
         except Exception as e:
             logger.error(f"Sync research error: {e}")

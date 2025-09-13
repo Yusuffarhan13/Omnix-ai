@@ -12,11 +12,14 @@
     <!-- Monaco Editor for Code Canvas -->
     <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&family=Allura&family=Dancing+Script:wght@700&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&family=Patrick+Hand&display=swap');
+        
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+
 
         body {
             font-family: Georgia, 'Times New Roman', Times, serif;
@@ -1596,39 +1599,6 @@
             background: #f0f0f0;
             border-color: #c17b47;
             color: #c17b47;
-        }
-
-        /* Deep Research Toggle Button */
-        .deep-research-toggle {
-            width: auto !important;
-            padding: 0 10px !important;
-            gap: 4px;
-            background: #f8f8f8 !important;
-            border: 1px solid #e5e5e5 !important;
-            transition: all 0.3s ease;
-        }
-
-        .deep-research-toggle.active {
-            background: #c17b47 !important;
-            border-color: #c17b47 !important;
-            color: white !important;
-        }
-
-        .deep-research-toggle .deep-research-label {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .deep-research-toggle i {
-            font-size: 14px;
-        }
-
-        .deep-research-toggle:hover:not(.active) {
-            background: #f0f0f0 !important;
-            border-color: #c17b47 !important;
-            color: #c17b47 !important;
         }
 
         .model-selector-wrapper {
@@ -4468,7 +4438,6 @@
             }
         }
     </style>
-    <script src="js/live_voice_client.js"></script>
 </head>
 <body>
     <!-- Sidebar -->
@@ -4520,7 +4489,7 @@
             <div class="omnix-icon" id="omnix-welcome-logo">
                 <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBvbHlnb24gcG9pbnRzPSIxMyAyIDMgMTQgMTIgMTQgMTEgMjIgMjEgMTAgMTIgMTAgMTMgMiIgZmlsbD0iI2QxNDYyYSIvPgo8L3N2Zz4K" alt="Omnix AI" style="width: 15%; height: 15%; object-fit: contain;">
             </div>
-            <h1 class="welcome-title">How can Omnix AI help you today?</h1>
+            <h1 class="welcome-title" id="dynamic-greeting">Good morning!</h1>
         </div>
 
         <div class="welcome-input-container">
@@ -4530,6 +4499,59 @@
                 
                 <!-- Text Input -->
                 <textarea id="welcome-input" placeholder="Ask me anything or choose a mode below..." rows="1"></textarea>
+                
+                <!-- Left Controls (Plus, Mic, and Slider) -->
+                <div class="welcome-left-controls">
+                    <button class="welcome-control-btn" id="welcome-plus-btn" title="More options">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="welcome-control-btn" id="welcome-mic-btn" title="Voice input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
+                
+                <!-- Right Controls (Model Selector, Send) -->
+                <div class="welcome-right-controls">
+                    <div class="model-selector-wrapper">
+                        <button class="welcome-control-btn model-selector-btn" id="welcome-model-selector" title="Select AI Model">
+                            <span id="welcome-selected-model">Omnix Flash</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="model-dropdown" id="welcome-model-dropdown">
+                            <div class="model-option" data-model="flash">
+                                <span class="model-name">Omnix Flash</span>
+                                <span class="model-desc">Fast responses</span>
+                            </div>
+                            <div class="model-option" data-model="maxima">
+                                <span class="model-name">Omnix Maxima</span>
+                                <span class="model-desc">Complex tasks</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="welcome-control-btn send-button" id="welcome-send-button" title="Send message">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                </div>
+
+                <!-- Plus Menu for Welcome -->
+                <div class="plus-menu" id="welcome-plus-menu" style="bottom: auto; top: 45px; left: 8px;">
+                    <div class="plus-menu-item" id="welcome-upload-files">
+                        <i class="fas fa-paperclip"></i>
+                        <span>Upload Files</span>
+                    </div>
+                    <div class="plus-menu-item" id="welcome-upload-video">
+                        <i class="fas fa-video"></i>
+                        <span>Upload Video</span>
+                    </div>
+                    <div class="plus-menu-item" id="welcome-upload-codebase">
+                        <i class="fas fa-code"></i>
+                        <span>Upload Codebase</span>
+                    </div>
+                    <div class="plus-menu-item" id="welcome-take-camera">
+                        <i class="fas fa-camera"></i>
+                        <span>Take Using Camera</span>
+                    </div>
+                </div>
                 
                 <!-- Left Controls (Plus, Mic, and Slider) -->
                 <div class="welcome-left-controls">
@@ -4675,14 +4697,8 @@
                     </button>
                 </div>
 
-                <!-- Right Controls (Deep Research Toggle, Model Selector, Send) -->
+                <!-- Right Controls (Model Selector, Send) -->
                 <div class="input-right-controls">
-                    <!-- Deep Research Toggle (only visible in research mode) -->
-                    <button class="input-control-btn deep-research-toggle" id="deep-research-toggle" title="Toggle Deep Research" style="display: none;">
-                        <i class="fas fa-microscope"></i>
-                        <span class="deep-research-label">Deep</span>
-                    </button>
-                    
                     <div class="model-selector-wrapper">
                         <button class="input-control-btn model-selector-btn" id="chat-model-selector" title="Select AI Model">
                             <span id="chat-selected-model">Omnix Flash</span>
@@ -5175,7 +5191,6 @@
         let mediaRecorder = null;
         let audioStream = null;
         let recognition = null;
-        let useDeepResearch = false; // Track deep research mode
         let sliderSettings = {
             mode: 'chat',
             style: 'auto',
@@ -5352,26 +5367,6 @@
                 chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
             });
 
-            // Deep Research Toggle
-            const deepResearchToggle = document.getElementById('deep-research-toggle');
-            if (deepResearchToggle) {
-                deepResearchToggle.addEventListener('click', () => {
-                    useDeepResearch = !useDeepResearch;
-                    deepResearchToggle.classList.toggle('active', useDeepResearch);
-                    
-                    // Update button text
-                    const label = deepResearchToggle.querySelector('.deep-research-label');
-                    if (label) {
-                        label.textContent = useDeepResearch ? 'Deep' : 'Regular';
-                    }
-                    
-                    // Update tooltip
-                    deepResearchToggle.title = useDeepResearch ? 
-                        'Deep Research Mode (Comprehensive but slower)' : 
-                        'Regular Research Mode (Fast)';
-                });
-            }
-            
             // Sidebar events
             miniExpand.addEventListener('click', openSidebar);
             sidebarClose.addEventListener('click', closeSidebar);
@@ -5683,16 +5678,6 @@
             currentMode = mode;
             showChatInterface();
             
-            // Show/hide deep research toggle button
-            const deepResearchToggle = document.getElementById('deep-research-toggle');
-            if (deepResearchToggle) {
-                if (mode === 'research') {
-                    deepResearchToggle.style.display = 'flex';
-                } else {
-                    deepResearchToggle.style.display = 'none';
-                }
-            }
-            
             // Show/hide Omnix Maxima indicator for complex mode
             const omnixIndicator = document.getElementById('omnix-maxima-indicator');
             if (omnixIndicator) {
@@ -5797,10 +5782,7 @@
                 
                 if (currentMode === 'research') {
                     endpoint = '/research';
-                    body = { 
-                        query: message,
-                        use_deep_research: useDeepResearch 
-                    };
+                    body = { query: message };
                 }
                 
                 const response = await fetch(endpoint, {
@@ -6334,45 +6316,24 @@
             summaryP.innerHTML = marked.parse(summaryString);
             contentDiv.appendChild(summaryP);
             
-            // Add sources section
+            // Add sources
             if (sources && sources.length > 0) {
-                const sourcesDiv = document.createElement('div');
-                sourcesDiv.style.cssText = `
-                    margin-top: 1.5rem;
-                    padding: 1rem;
-                    background: rgba(248, 249, 250, 0.9);
-                    border-radius: 8px;
-                    border: 1px solid rgba(193, 123, 71, 0.2);
-                `;
+                const sourcesTitle = document.createElement('p');
+                sourcesTitle.innerHTML = '<strong>Sources:</strong>';
+                sourcesTitle.style.marginTop = '1rem';
+                contentDiv.appendChild(sourcesTitle);
                 
-                const sourcesTitle = document.createElement('h4');
-                sourcesTitle.textContent = '📚 Sources';
-                sourcesTitle.style.cssText = 'margin: 0 0 0.75rem 0; color: #c17b47; font-size: 1rem;';
-                sourcesDiv.appendChild(sourcesTitle);
-                
-                sources.forEach((source, index) => {
-                    const sourceItem = document.createElement('div');
-                    sourceItem.style.cssText = 'margin-bottom: 0.5rem; display: flex; align-items: start; gap: 0.5rem;';
-                    
-                    const sourceNumber = document.createElement('span');
-                    sourceNumber.textContent = `[${index + 1}]`;
-                    sourceNumber.style.cssText = 'color: #c17b47; font-weight: bold;';
-                    
+                sources.forEach(source => {
                     const sourceLink = document.createElement('a');
-                    sourceLink.href = source.url || '#';
+                    sourceLink.href = source.url;
                     sourceLink.target = '_blank';
-                    sourceLink.rel = 'noopener noreferrer';
-                    sourceLink.textContent = source.title || `Source ${index + 1}`;
-                    sourceLink.style.cssText = 'color: #007bff; text-decoration: none;';
-                    sourceLink.onmouseover = () => sourceLink.style.textDecoration = 'underline';
-                    sourceLink.onmouseout = () => sourceLink.style.textDecoration = 'none';
-                    
-                    sourceItem.appendChild(sourceNumber);
-                    sourceItem.appendChild(sourceLink);
-                    sourcesDiv.appendChild(sourceItem);
+                    sourceLink.textContent = source.title;
+                    sourceLink.style.display = 'block';
+                    sourceLink.style.color = '#c17b47';
+                    sourceLink.style.textDecoration = 'underline';
+                    sourceLink.style.marginBottom = '0.25rem';
+                    contentDiv.appendChild(sourceLink);
                 });
-                
-                contentDiv.appendChild(sourcesDiv);
             }
             
             messageDiv.appendChild(header);
@@ -6406,9 +6367,10 @@
                     
                     const metadataContent = [];
                     if (sourceCount) metadataContent.push(`📚 ${sourceCount} sources analyzed`);
-                    metadataContent.push(`🔍 Deep research completed`);
+                    if (confidence) metadataContent.push(`🎯 ${Math.round(confidence * 100)}% confidence`);
+                    metadataContent.push(`🧠 Sequential thinking applied`);
                     
-                    metadataDiv.innerHTML = `<strong>Research Summary:</strong> ${metadataContent.join(' • ')}`;
+                    metadataDiv.innerHTML = `<strong>🔍 Comprehensive Research:</strong> ${metadataContent.join(' • ')}`;
                     contentDiv.appendChild(metadataDiv);
                 }
                 
@@ -6446,94 +6408,6 @@
                     
                     insightsDiv.appendChild(insightsList);
                     contentDiv.appendChild(insightsDiv);
-                }
-                
-                // Add sources section at the end
-                if (sources && sources.length > 0) {
-                    const sourcesDiv = document.createElement('div');
-                    sourcesDiv.style.cssText = `
-                        margin: 1.5rem 0 0 0;
-                        padding: 1rem;
-                        background: rgba(248, 249, 250, 0.9);
-                        border-radius: 8px;
-                        border: 1px solid rgba(193, 123, 71, 0.2);
-                    `;
-                    
-                    const sourcesTitle = document.createElement('h4');
-                    sourcesTitle.textContent = '📖 Sources';
-                    sourcesTitle.style.cssText = 'margin: 0 0 0.75rem 0; color: #c17b47; font-size: 1.1rem;';
-                    sourcesDiv.appendChild(sourcesTitle);
-                    
-                    const sourcesList = document.createElement('div');
-                    sourcesList.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-                    
-                    sources.forEach((source, index) => {
-                        const sourceItem = document.createElement('div');
-                        sourceItem.style.cssText = `
-                            display: flex;
-                            align-items: flex-start;
-                            gap: 0.5rem;
-                            padding: 0.5rem;
-                            background: white;
-                            border-radius: 4px;
-                            transition: all 0.2s ease;
-                        `;
-                        
-                        const sourceNumber = document.createElement('span');
-                        sourceNumber.textContent = `[${index + 1}]`;
-                        sourceNumber.style.cssText = `
-                            color: #c17b47;
-                            font-weight: bold;
-                            min-width: 30px;
-                        `;
-                        
-                        const sourceLink = document.createElement('a');
-                        sourceLink.href = source.url || '#';
-                        sourceLink.target = '_blank';
-                        sourceLink.rel = 'noopener noreferrer';
-                        sourceLink.textContent = source.title || `Source ${index + 1}`;
-                        sourceLink.style.cssText = `
-                            color: #007bff;
-                            text-decoration: none;
-                            flex: 1;
-                            word-break: break-word;
-                        `;
-                        sourceLink.onmouseover = () => {
-                            sourceLink.style.textDecoration = 'underline';
-                            sourceItem.style.background = '#f8f9fa';
-                        };
-                        sourceLink.onmouseout = () => {
-                            sourceLink.style.textDecoration = 'none';
-                            sourceItem.style.background = 'white';
-                        };
-                        
-                        if (source.snippet) {
-                            const snippetDiv = document.createElement('div');
-                            snippetDiv.textContent = source.snippet;
-                            snippetDiv.style.cssText = `
-                                color: #666;
-                                font-size: 0.85rem;
-                                margin-top: 0.25rem;
-                                line-height: 1.4;
-                            `;
-                            
-                            const linkContainer = document.createElement('div');
-                            linkContainer.style.cssText = 'flex: 1;';
-                            linkContainer.appendChild(sourceLink);
-                            linkContainer.appendChild(snippetDiv);
-                            
-                            sourceItem.appendChild(sourceNumber);
-                            sourceItem.appendChild(linkContainer);
-                        } else {
-                            sourceItem.appendChild(sourceNumber);
-                            sourceItem.appendChild(sourceLink);
-                        }
-                        
-                        sourcesList.appendChild(sourceItem);
-                    });
-                    
-                    sourcesDiv.appendChild(sourcesList);
-                    contentDiv.appendChild(sourcesDiv);
                 }
                 
                 messageDiv.appendChild(contentDiv);
@@ -6636,15 +6510,9 @@
             
             try {
                 if (language === 'javascript' || language === 'js') {
-                    // Create a safer sandbox for JavaScript execution using Function constructor
-                    try {
-                        const func = new Function(code);
-                        const result = func();
-                        outputDiv.textContent = result !== undefined ? String(result) : 'Code executed successfully';
-                    } catch (err) {
-                        outputDiv.textContent = `Error: ${err.message}`;
-                        outputDiv.style.color = '#ff6b6b';
-                    }
+                    // Create a sandbox for JavaScript execution
+                    const result = eval(code);
+                    outputDiv.textContent = result !== undefined ? String(result) : 'Code executed successfully';
                 } else if (language === 'html') {
                     // For HTML, create an iframe to render it
                     const iframe = document.createElement('iframe');
@@ -7062,7 +6930,7 @@
                     loadingText.innerHTML = `
                         🔍 Conducting comprehensive research...<br>
                         <span style="font-size: 0.8rem; color: #888; margin-top: 0.5rem; display: block;">
-                            • Conducting deep research • Analyzing multiple sources • Synthesizing information
+                            • Searching 25-100+ sources • Applying sequential thinking • Analyzing credibility
                         </span>
                     `;
                 }
@@ -7142,7 +7010,62 @@
             contentDiv.innerHTML = html;
         }
 
-        // Duplicate functions removed - keeping only the first declarations
+        function toggleDetailedThinking(messageId) {
+            const content = document.getElementById(`detailed-thinking-content-${messageId}`);
+            const toggle = document.getElementById(`detailed-thinking-toggle-${messageId}`);
+            content.classList.toggle('expanded');
+            toggle.classList.toggle('expanded');
+        }
+
+        function renderDetailedThinkingProcess(messageId, results) {
+            const container = document.getElementById(`detailed-thinking-container-${messageId}`);
+            const contentDiv = document.getElementById(`detailed-thinking-content-${messageId}`);
+            if (!container || !contentDiv) return;
+
+            // Make the container visible
+            container.style.display = 'block';
+            
+            let html = '';
+
+            // 1. Multi-Stage Reasoning
+            if (results.multi_stage_reasoning) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">🧠 Multi-Stage Reasoning</div>
+                        <div class="detail-section-content">
+                            <strong>Analysis:</strong>
+                            <p>${results.multi_stage_reasoning.analysis}</p>
+                            <strong>Architecture:</strong>
+                            <p>${results.multi_stage_reasoning.architecture}</p>
+                            <strong>Implementation:</strong>
+                            <p>${results.multi_stage_reasoning.implementation}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 2. Multi-Perspective Analysis
+            if (results.multi_perspective_analysis) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">👁️ Multi-Perspective Analysis</div>
+                        <div class="detail-section-content">${results.multi_perspective_analysis}</div>
+                    </div>
+                `;
+            }
+
+            // 3. Enhanced Sequential Thinking
+            if (results.enhanced_sequential_thinking) {
+                html += `
+                    <div class="detail-section">
+                        <div class="detail-section-title">🔗 Enhanced Sequential Thinking</div>
+                        <div class="detail-section-content">${results.enhanced_sequential_thinking.thinking_process}</div>
+                    </div>
+                `;
+            }
+
+            contentDiv.innerHTML = html;
+        }
 
         // Sidebar functionality
         function openSidebar() {
@@ -8078,174 +8001,27 @@
             }
         });
 
-        // ============ SERVER-SIDE LIVE VOICE SYSTEM ============
-        // All processing happens on the server, no Socket.IO needed
-        
-        class LiveVoiceSystem {
-            constructor() {
-                this.client = null;
-                this.isActive = false;
-                this.isRecording = false;
-                this.sessionId = null;
-            }
-            
-            async initialize() {
-                console.log('🎤 Initializing Server-Side Live Voice System...');
-                
-                try {
-                    // Create and initialize the server-side client
-                    if (window.ServerSideLiveVoiceClient) {
-                        this.client = new window.ServerSideLiveVoiceClient();
-                        const success = await this.client.initialize();
-                        
-                        if (success) {
-                            this.isActive = true;
-                            this.sessionId = this.client.sessionId;
-                            console.log('✅ Live Voice System initialized successfully');
-                            this.updateStatus('Ready', 'Click microphone to start talking');
-                            return true;
-                        }
-                    } else {
-                        throw new Error('Live Voice Client not loaded');
-                    }
-                } catch (error) {
-                    console.error('❌ Failed to initialize Live Voice System:', error);
-                    this.showError(error.message);
-                    return false;
-                }
-            }
-            
-            
-            startRecording() {
-                if (!this.isActive || this.isRecording || !this.client) return;
-                
-                console.log('🔴 Starting recording...');
-                const success = this.client.startRecording();
-                
-                if (success) {
-                    this.isRecording = true;
-                    this.updateStatus('Recording', 'Listening to you...');
-                    
-                    // Update UI
-                    const micBtn = document.getElementById('live-mic-btn');
-                    if (micBtn) {
-                        micBtn.classList.add('recording');
-                    }
-                }
-            }
-            
-            stopRecording() {
-                if (!this.isRecording || !this.client) return;
-                
-                console.log('⏹️ Stopping recording...');
-                const success = this.client.stopRecording();
-                
-                if (success) {
-                    this.isRecording = false;
-                    this.updateStatus('Processing', 'Processing your message...');
-                    
-                    // Update UI
-                    const micBtn = document.getElementById('live-mic-btn');
-                    if (micBtn) {
-                        micBtn.classList.remove('recording');
-                    }
-                }
-            }
-            
-            async sendTextMessage(text) {
-                if (!this.isActive || !text.trim() || !this.client) return;
-                
-                console.log('📤 Sending text message:', text);
-                this.updateTranscription('You: ' + text);
-                
-                // Send via client (handles server-side processing)
-                await this.client.sendTextMessage(text);
-                
-                this.updateStatus('Waiting', 'Waiting for response...');
-            }
-            
-            updateStatus(title, subtitle) {
-                updateConversationStatus(title, subtitle);
-            }
-            
-            updateTranscription(text) {
-                const element = document.getElementById('transcription-text');
-                if (element) {
-                    element.textContent = text;
-                }
-            }
-            
-            showError(message) {
-                this.updateStatus('Error', message);
-                console.error('Live Voice Error:', message);
-            }
-            
-            async cleanup() {
-                console.log('🧹 Cleaning up Live Voice System...');
-                
-                // Stop recording if active
-                if (this.isRecording) {
-                    this.stopRecording();
-                }
-                
-                // End client session
-                if (this.client) {
-                    await this.client.end();
-                    this.client = null;
-                }
-                
-                this.isActive = false;
-                this.sessionId = null;
-                console.log('✅ Cleanup complete');
-            }
-        }
-        
-        // Global instance
-        let liveVoiceSystem = null;
-        
-        // Updated start function
-        async function startLiveConversation() {
+        // Live Conversation Functions
+        function startLiveConversation() {
             console.log('Starting live conversation...');
+            isLiveConversationActive = true;
+            liveConversationOverlay.classList.add('show');
+            initializeVoiceSphere();
+            initializeLiveAudio();
+            setupLiveControls();
+            updateConversationStatus('Ready', 'Click Start to begin your conversation');
             
-            try {
-                // Show overlay
-                isLiveConversationActive = true;
-                liveConversationOverlay.classList.add('show');
-                
-                // Initialize voice sphere animation
-                initializeVoiceSphere();
-                
-                // Create and initialize live voice system
-                liveVoiceSystem = new LiveVoiceSystem();
-                const success = await liveVoiceSystem.initialize();
-                
-                if (success) {
-                    setupLiveControls();
-                    updateConversationStatus('Ready', 'Click microphone to start talking');
-                } else {
-                    throw new Error('Failed to initialize voice system');
-                }
-                
-            } catch (error) {
-                console.error('Failed to start live conversation:', error);
-                updateConversationStatus('Error', error.message);
-                // Close overlay on error
-                setTimeout(() => closeLiveConversation(), 3000);
-            }
+            // Show start button, hide others initially
+            // liveStartBtn removed - using mic button only
+            if (liveStopBtn) liveStopBtn.style.display = 'none';
         }
 
-        async function closeLiveConversation() {
+        function closeLiveConversation() {
             console.log('Closing live conversation...');
             isLiveConversationActive = false;
             liveConversationOverlay.classList.remove('show');
             
-            // Clean up live voice system
-            if (liveVoiceSystem) {
-                await liveVoiceSystem.cleanup();
-                liveVoiceSystem = null;
-            }
-            
-            // Clean up old audio resources (for compatibility)
+            // Clean up audio resources
             if (liveMediaStream) {
                 liveMediaStream.getTracks().forEach(track => track.stop());
                 liveMediaStream = null;
@@ -8256,7 +8032,8 @@
                 liveAudioContext = null;
             }
             
-            // Stop voice sphere animation
+            // ElevenLabs uses SocketIO, no separate WebSocket to close
+            
             if (voiceSphereSystem) {
                 voiceSphereSystem.stop();
                 voiceSphereSystem = null;
@@ -8324,20 +8101,81 @@
             console.log(`Status: ${title}${subtitle ? ` - ${subtitle}` : ''}`);
         }
 
-        // Legacy functions kept for compatibility - will be removed in future
         async function initializeLiveAudio() {
-            // Now handled by LiveVoiceSystem class
-            console.log('Legacy initializeLiveAudio called - using new system');
+            try {
+                // Get microphone access
+                liveMediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                // Create audio context for visualization
+                liveAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                liveAnalyser = liveAudioContext.createAnalyser();
+                liveAnalyser.fftSize = 256;
+                
+                const source = liveAudioContext.createMediaStreamSource(liveMediaStream);
+                source.connect(liveAnalyser);
+                
+                // Initialize ElevenLabs Live API connection (wait for socket first)
+                await waitForSocketAndInitialize();
+                
+                updateConversationStatus('Ready', 'ElevenLabs AI agent is ready to listen and support you');
+                
+            } catch (error) {
+                console.error('Error initializing live audio:', error);
+                updateConversationStatus('Error', 'Could not access microphone');
+            }
         }
-        
+
         async function waitForSocketAndInitialize() {
-            // Now handled by LiveVoiceSystem class
-            console.log('Legacy waitForSocketAndInitialize called - using new system');
+            // Wait for socket to be connected (max 10 seconds)
+            const maxWaitTime = 10000;
+            const startTime = Date.now();
+            
+            while ((!socket || !socket.connected) && (Date.now() - startTime) < maxWaitTime) {
+                console.log('⏳ Waiting for socket connection...');
+                updateConversationStatus('Connecting...', 'Establishing server connection');
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            if (!socket || !socket.connected) {
+                throw new Error('Failed to establish socket connection within 10 seconds');
+            }
+            
+            console.log('✅ Socket connected, initializing ElevenLabs...');
+            await initializeElevenLabsLive();
         }
-        
+
         async function initializeElevenLabsLive() {
-            // Now handled by LiveVoiceSystem class
-            console.log('Legacy initializeElevenLabsLive called - using new system');
+            try {
+                console.log('Initializing ElevenLabs Conversational AI...');
+                updateConversationStatus('Connecting...', 'Establishing secure connection');
+                
+                // Check if socket is connected
+                if (!socket || !socket.connected) {
+                    throw new Error('Socket.IO connection not available');
+                }
+                
+                // Use SocketIO to start live session through backend
+                console.log('Starting ElevenLabs live session via SocketIO...');
+                const selectedVoice = getSelectedVoice();
+                socket.emit('live_session_start', {
+                    agent_id: 'default',  // Use default ElevenLabs agent
+                    voice_id: selectedVoice  // Use the selected voice
+                });
+                
+                console.log('✅ ElevenLabs Live session start request sent via SocketIO');
+                
+            } catch (error) {
+                console.error('❌ Error connecting to ElevenLabs Live:', error);
+                updateConversationStatus('Connection Error', error.message || 'Please try again later');
+                throw error;
+            }
         }
 
         // ElevenLabs uses SocketIO connection - no need for separate token management
@@ -8446,17 +8284,11 @@
                 
                 console.log('🎤 Sending audio for STT processing');
                 
-                // Send to backend for STT processing - check if socket is connected
-                if (socket && socket.connected) {
-                    socket.emit('live_send_audio', {
-                        session_id: liveSessionId,
-                        audio_data: audioBase64
-                    });
-                    console.log('🎵 Audio sent to server for STT processing');
-                } else {
-                    console.warn('⚠️ Socket not connected - cannot send audio');
-                    updateTranscriptionText('⚠️ Connection lost - please refresh page');
-                }
+                // Send to backend for STT processing
+                socket.emit('live_send_audio', {
+                    session_id: liveSessionId,
+                    audio_data: audioBase64
+                });
                 
                 updateConversationStatus('Processing...', 'Converting speech to text');
                 
@@ -9159,20 +8991,12 @@
         }
 
         function toggleLiveRecording() {
-            if (!liveVoiceSystem || !liveVoiceSystem.isActive) {
-                console.warn('Live voice system not active');
-                updateConversationStatus('Error', 'System not ready');
+            // Check if socket is connected before starting recording
+            if (!socket || !socket.connected) {
+                console.warn('⚠️ Socket not connected - cannot start recording');
+                updateTranscriptionText('⚠️ Connection lost - please refresh page to reconnect');
                 return;
             }
-            
-            // Toggle recording state
-            if (liveVoiceSystem.isRecording) {
-                liveVoiceSystem.stopRecording();
-            } else {
-                liveVoiceSystem.startRecording();
-            }
-            
-            return; // Early return to skip old implementation
             
             if (isLiveRecording) {
                 // Manual stop - process the recording
@@ -9410,17 +9234,11 @@
                 }
                 const base64Audio = btoa(binaryString);
                 
-                // Send to STT - check if socket is connected
-                if (socket && socket.connected) {
-                    socket.emit('live_send_audio', {
-                        audio_data: base64Audio,
-                        format: 'wav'
-                    });
-                    console.log('🎵 Audio sent to server for processing');
-                } else {
-                    console.warn('⚠️ Socket not connected - cannot send audio');
-                    updateTranscriptionText('⚠️ Connection lost - please refresh page');
-                }
+                // Send to STT
+                socket.emit('live_send_audio', {
+                    audio_data: base64Audio,
+                    format: 'wav'
+                });
                 
                 audioBuffer = [];
                 
@@ -9598,39 +9416,7 @@
         }
 
         function showSources() {
-            // Scroll to the last research message with sources
-            const messages = document.querySelectorAll('.message');
-            for (let i = messages.length - 1; i >= 0; i--) {
-                const sourcesSection = messages[i].querySelector('[style*="Sources"]');
-                if (sourcesSection) {
-                    sourcesSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    // Highlight the sources section briefly
-                    const originalBg = sourcesSection.style.background;
-                    sourcesSection.style.background = 'rgba(193, 123, 71, 0.2)';
-                    setTimeout(() => {
-                        sourcesSection.style.background = originalBg;
-                    }, 1500);
-                    return;
-                }
-            }
-            
-            // If no sources found, show info message
-            const infoDiv = document.createElement('div');
-            infoDiv.style.cssText = `
-                position: fixed;
-                bottom: 100px;
-                right: 20px;
-                background: #c17b47;
-                color: white;
-                padding: 1rem;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                z-index: 1000;
-                max-width: 300px;
-            `;
-            infoDiv.textContent = 'No sources available. Sources are shown after research queries.';
-            document.body.appendChild(infoDiv);
-            setTimeout(() => infoDiv.remove(), 3000);
+            alert('Sources feature coming soon!\n\nThis will show the references and sources that the AI uses to generate responses.');
         }
 
         function updateTranscription(text, isListening = false) {
@@ -9874,7 +9660,8 @@
             };
         }
 
-        // Live conversation variables
+        // Initialize Socket.IO connection for live conversation
+        let socket = null;
         let currentSessionId = null;
         let sessionActive = false;
 
@@ -10482,19 +10269,9 @@
             });
         }
 
-        // Removed Socket.IO initialization - now using server-side processing
+        // Initialize socket connection with low-latency optimizations
         function initializeSocket() {
-            // Always connect to the Flask server on port 8003
-            const serverUrl = 'http://localhost:8003';
-            console.log('Connecting to Socket.IO server at:', serverUrl);
-            
-            // Check if io is available
-            if (typeof io === 'undefined') {
-                console.error('Socket.IO library not loaded!');
-                throw new Error('Socket.IO library not loaded');
-            }
-            
-            window.socket = socket = io(serverUrl, {
+            socket = io({
                 transports: ['websocket', 'polling'], // Prioritize websocket
                 upgrade: true, // Allow upgrading to websocket
                 rememberUpgrade: true, // Remember the upgrade
@@ -10972,7 +10749,35 @@
             }
         }
 
+        // Function to update greeting based on time
+        function updateTimeBasedGreeting() {
+            const now = new Date();
+            const hour = now.getHours();
+            const greetingElement = document.getElementById('dynamic-greeting');
+            
+            let greeting;
+            if (hour >= 5 && hour < 12) {
+                greeting = "Good morning!";
+            } else if (hour >= 12 && hour < 17) {
+                greeting = "Good afternoon!";
+            } else if (hour >= 17 && hour < 22) {
+                greeting = "Good evening!";
+            } else {
+                greeting = "Hello night owl!";
+            }
+            
+            if (greetingElement) {
+                greetingElement.textContent = greeting;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // Update greeting based on current time
+            updateTimeBasedGreeting();
+            
+            // Update greeting every hour
+            setInterval(updateTimeBasedGreeting, 3600000);
+            
             // Initialize socket after other initializations
             setTimeout(initializeSocket, 1000);
             
@@ -11045,6 +10850,7 @@
     </div>
 
     <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.1/socket.io.min.js"></script>
 <script>
 class CodeCanvas {
     constructor() {
@@ -11110,10 +10916,9 @@ class CodeCanvas {
             outputPanel.textContent = 'Python execution requires backend service...';
             this.switchTab('output');
         } else if (this.currentLanguage === 'javascript') {
-            // Execute JavaScript more safely using Function constructor
+            // Execute JavaScript safely
             try {
-                const func = new Function(code);
-                const result = func();
+                const result = eval(code);
                 outputPanel.textContent = `Output: ${result}`;
             } catch (error) {
                 outputPanel.textContent = `Error: ${error.message}`;
