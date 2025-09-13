@@ -8,6 +8,7 @@ import requests
 from pathlib import Path
 from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import threading
 import time
 from dotenv import load_dotenv
@@ -33,7 +34,8 @@ from cloud_browser import get_cloud_browser_manager, ManagedCloudBrowserSession
 from browser_use_cloud import get_browser_use_cloud
 from stt_tts_system import create_stt_tts_manager
 from enhanced_complex_mode import EnhancedComplexModeManager
-from enhanced_research_mode import EnhancedResearchManager
+# from enhanced_research_mode import EnhancedResearchManager  # Replaced with Perplexity
+from perplexity_research import PerplexityResearchManager
 from omnix_maxima_mode import OmnixMaximaManager
 from deepseek_coding_system import DeepSeekCodingSystem
 from reasoning_orchestrator import DynamicReasoningOrchestrator
@@ -45,6 +47,7 @@ import queue
 
 from screenshot_collector import ScreenshotCollector
 from supabase_logo_service import get_logos_for_frontend
+from live_voice_server import register_routes as register_live_voice_routes
 
 # Initialize interactive agent manager
 agent_manager = InteractiveAgentManager()
@@ -95,6 +98,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 app = Flask(__name__, static_folder='frontend', template_folder='frontend')
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
 app.config['SECRET_KEY'] = 'omnix-ai-secret-key-2024'
+# Enable CORS for all routes
+CORS(app, resources={r"/*": {"origins": "*"}})
 # Enhanced SocketIO configuration to prevent connection issues
 socketio = SocketIO(
     app, 
@@ -128,6 +133,7 @@ BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 GITHUB_PERSONAL_ACCESS_TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BACKUP_KEY = os.getenv("OPENROUTER_API_KEY_BACKUP")
+PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
 
 # Check for required API keys for hybrid setup
 required_keys = {
@@ -253,11 +259,17 @@ if GOOGLE_API_KEY and GOOGLE_API_KEY != "your_google_api_key_here":
         # Initialize enhanced complex mode and research managers
         try:
             enhanced_complex_manager = EnhancedComplexModeManager(GOOGLE_API_KEY)
-            enhanced_research_manager = EnhancedResearchManager(
-                google_api_key=GOOGLE_API_KEY,
-                brave_api_key=BRAVE_API_KEY
-            )
-            print("✅ Enhanced Complex Mode and Research Manager initialized")
+            
+            # Initialize Perplexity Research Manager if API key is available
+            if PERPLEXITY_API_KEY and PERPLEXITY_API_KEY != "your_perplexity_api_key_here":
+                enhanced_research_manager = PerplexityResearchManager(PERPLEXITY_API_KEY)
+                print("✅ Perplexity Sonar Deep Research Manager initialized")
+            else:
+                # Fallback to a simple research implementation using Brave API
+                enhanced_research_manager = None
+                print("ℹ️  Perplexity API key not configured - using basic research mode")
+            
+            print("✅ Enhanced Complex Mode initialized")
             orchestrator = DynamicReasoningOrchestrator(GOOGLE_API_KEY, BRAVE_API_KEY)
             orchestrator = DynamicReasoningOrchestrator(GOOGLE_API_KEY, BRAVE_API_KEY)
             
@@ -701,6 +713,11 @@ def get_logos():
 def console_test():
     return send_from_directory('.', 'test_browser_console.js')
 
+@app.route('/js/<path:filename>')
+def serve_js(filename):
+    """Serve JavaScript files from the frontend/js directory"""
+    return send_from_directory(os.path.join(app.static_folder, 'js'), filename)
+
 @app.route('/browser_debug_info/<task_id>')
 def get_browser_debug_info(task_id):
     """Get browser debugging information for live view"""
@@ -1130,61 +1147,29 @@ def research_agent():
     query = data.get('query', '').strip()
     if not query: return jsonify({'error': 'Query cannot be empty'}), 400
     
-    # Determine research complexity based on query
-    complexity_keywords = ['comprehensive', 'detailed', 'thorough', 'extensive', 'complete', 'exhaustive']
-    is_complex = any(keyword in query.lower() for keyword in complexity_keywords)
-    
-    # Set maximum source count based on complexity (will use ALL found sources up to this limit)
-    max_sources = 150 if is_complex else 100
-    
     try:
-        # Use enhanced research manager if available for comprehensive analysis
+        # Use Perplexity Sonar Deep Research if available
         if enhanced_research_manager:
-            app.logger.info(f"🔍 Using enhanced research with up to {max_sources} sources: {query}")
+            app.logger.info(f"🔍 Using Perplexity Sonar Deep Research for: {query}")
             
-            def process_enhanced_research():
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    
-                    result = loop.run_until_complete(
-                        enhanced_research_manager.conduct_comprehensive_research(
-                            query, 
-                            max_sources=max_sources,
-                            use_sequential_thinking=True
-                        )
-                    )
-                    
-                    # Format for frontend
-                    sources = [{
-                        "title": source.title,
-                        "url": source.url,
-                        "credibility": source.credibility_score,
-                        "type": source.source_type
-                    } for source in result.sources]
-                    
-                    return {
-                        "summary": result.synthesis,
-                        "sources": sources,
-                        "insights": result.key_insights,
-                        "confidence": result.confidence_score,
-                        "source_count": len(result.sources)
-                    }
-                    
-                except Exception as e:
-                    app.logger.error(f"Enhanced research error: {e}")
-                    return None
-                finally:
-                    if 'loop' in locals():
-                        loop.close()
+            # Use synchronous method for Flask context
+            result = enhanced_research_manager.conduct_research_sync(query)
             
-            # Try enhanced research first
-            enhanced_result = process_enhanced_research()
-            if enhanced_result:
-                return jsonify(enhanced_result)
-            
-            # Fall back to basic research if enhanced fails
-            app.logger.warning("Enhanced research failed, falling back to basic research")
+            if result['success']:
+                # Format response for frontend
+                return jsonify({
+                    "summary": result['summary'],
+                    "sources": result['sources'],
+                    "insights": result['key_insights'],
+                    "confidence": result['confidence_score'],
+                    "source_count": len(result['sources']),
+                    "metadata": result.get('metadata', {})
+                })
+            else:
+                app.logger.warning(f"Perplexity research failed: {result.get('error', 'Unknown error')}")
+                # Fall back to basic research
+        else:
+            app.logger.info("Perplexity not configured, using basic research")
         
         # Basic research with increased sources
         headers = {"X-Subscription-Token": BRAVE_API_KEY}
@@ -1422,52 +1407,37 @@ def enhanced_research_agent():
     
     try:
         if enhanced_research_manager:
-            app.logger.info(f"🔍 Processing enhanced research: {query}")
+            app.logger.info(f"🔍 Processing Perplexity Deep Research: {query}")
             
-            def process_research():
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    
-                    if research_type == 'comprehensive':
-                        result = loop.run_until_complete(
-                            enhanced_research_manager.conduct_comprehensive_research(query)
-                        )
-                    elif research_type == 'fact_check':
-                        result = loop.run_until_complete(
-                            enhanced_research_manager.fact_check_claim(query)
-                        )
-                    elif research_type == 'comparative':
-                        topics = data.get('topics', [query])
-                        result = loop.run_until_complete(
-                            enhanced_research_manager.comparative_analysis(topics)
-                        )
-                    else:
-                        result = loop.run_until_complete(
-                            enhanced_research_manager.conduct_comprehensive_research(query)
-                        )
-                    
-                    loop.close()
-                    return result
-                except Exception as e:
-                    app.logger.error(f"Enhanced research failed: {e}")
-                    return {'error': str(e)}
+            # Perplexity Sonar Deep Research handles all research types comprehensively
+            result = enhanced_research_manager.conduct_research_sync(query)
             
-            # Run in thread pool
-            research_result = executor.submit(process_research).result(timeout=180)  # 3 minute timeout
-            
-            return jsonify({
-                'query': query,
-                'type': research_type,
-                'result': research_result if not isinstance(research_result, dict) or 'error' not in research_result else None,
-                'error': research_result.get('error') if isinstance(research_result, dict) and 'error' in research_result else None,
-                'enhanced_mode': True
-            })
+            if result['success']:
+                return jsonify({
+                    'query': query,
+                    'type': research_type,
+                    'result': {
+                        'summary': result['summary'],
+                        'sources': result['sources'],
+                        'insights': result['key_insights'],
+                        'confidence': result['confidence_score'],
+                        'metadata': result.get('metadata', {})
+                    },
+                    'enhanced_mode': True,
+                    'provider': 'perplexity_sonar_deep_research'
+                })
+            else:
+                return jsonify({
+                    'query': query,
+                    'type': research_type,
+                    'error': result.get('error', 'Research failed'),
+                    'enhanced_mode': False
+                })
         
         else:
             return jsonify({
-                'error': 'Enhanced research not available',
-                'message': 'Enhanced research manager not initialized'
+                'error': 'Perplexity research not available',
+                'message': 'Please add PERPLEXITY_API_KEY to your .env file'
             }), 500
             
     except Exception as e:
@@ -1924,58 +1894,6 @@ def handle_live_session_start(data):
             'error': 'Failed to start session',
             'message': str(e)
         })
-        agent_id = None
-        def create_session():
-            try:
-                # Create session
-                session = asyncio.run(elevenlabs_manager.create_session(session_id, agent_id))
-                
-                # Set up callbacks
-                def emit_text_response(text):
-                    socketio.emit('live_text_response', {
-                        'session_id': session_id,
-                        'text': text,
-                        'timestamp': time.time()
-                    })
-
-                def emit_audio_response(audio_data):
-                    socketio.emit('live_audio_response', {
-                        'session_id': session_id,
-                        'audio_data': audio_data,
-                        'timestamp': time.time()
-                    })
-
-                def emit_session_started(sid):
-                    socketio.emit('live_session_started', {
-                        'session_id': session_id,
-                        'elevenlabs_session_id': sid,
-                        'status': 'active'
-                    })
-
-                # Set callbacks
-                session.set_callbacks(
-                    on_text_response=emit_text_response,
-                    on_audio_response=emit_audio_response,
-                    on_session_start=emit_session_started
-                )
-                
-                # Send initial creation confirmation
-                socketio.emit('live_session_created', {
-                    'session_id': session_id,
-                    'status': 'starting'
-                })
-                
-            except Exception as e:
-                socketio.emit('live_session_error', {
-                    'error': f'Failed to create session: {str(e)}'
-                })
-        
-        executor.submit(create_session)
-        
-    except Exception as e:
-        socketio.emit('live_session_error', {
-            'error': f'Session start failed: {str(e)}'
-        })
 
 @socketio.on('live_send_text')
 def handle_live_send_text(data):
@@ -2215,6 +2133,92 @@ def handle_live_send_audio(data):
     except Exception as e:
         print(f"❌ Error in live_send_audio: {e}")
         socketio.emit('live_session_error', {
+            'error': f'Audio processing failed: {str(e)}'
+        })
+
+@socketio.on('live_audio_input')
+def handle_live_audio_input(data):
+    """Handle audio input from the rebuilt live voice system"""
+    try:
+        session_id = data.get('session_id')
+        audio_data = data.get('audio_data')
+        mime_type = data.get('mime_type', 'audio/webm')
+        
+        if not session_id or not audio_data:
+            emit('live_session_error', {
+                'error': 'Missing session_id or audio_data'
+            })
+            return
+        
+        print(f"🎤 Received audio input for session: {session_id}")
+        
+        # Convert base64 to audio and process
+        def process_audio_input():
+            try:
+                # Transcribe audio using STT
+                if stt_tts_manager:
+                    # Use the synchronous transcribe method if available
+                    transcription = stt_tts_manager.transcribe_audio_sync(audio_data, mime_type)
+                    print(f"📝 Transcription: {transcription}")
+                    
+                    # Log transcription (don't emit the "You said:" message)
+                    # socketio.emit('live_text_response', {
+                    #     'session_id': session_id,
+                    #     'text': f"You said: {transcription}",
+                    #     'type': 'transcription'
+                    # })
+                    
+                    # Get AI response using Gemini
+                    if chat_llm_flash:
+                        prompt = f"""You are a helpful voice assistant. 
+                        Be conversational, warm, and concise in your responses.
+                        Keep responses brief and natural for voice conversation.
+                        
+                        User said: {transcription}
+                        
+                        Respond naturally and helpfully:"""
+                        
+                        response = chat_llm_flash.generate_content(prompt)
+                        ai_response = response.text
+                    else:
+                        ai_response = "I'm sorry, the chat service is not available right now."
+                    
+                    print(f"🤖 AI Response: {ai_response[:100]}...")
+                    
+                    # Emit AI text response
+                    socketio.emit('live_text_response', {
+                        'session_id': session_id,
+                        'text': ai_response,
+                        'type': 'ai_response'
+                    })
+                    
+                    # Generate TTS audio
+                    audio_base64 = stt_tts_manager.text_to_speech_sync(ai_response)
+                    if audio_base64:
+                        socketio.emit('live_audio_response', {
+                            'session_id': session_id,
+                            'audio_data': audio_base64,
+                            'text': ai_response
+                        })
+                        print(f"🔊 Sent audio response for session: {session_id}")
+                else:
+                    raise Exception("STT/TTS system not available")
+                    
+            except Exception as e:
+                print(f"❌ Error processing audio: {e}")
+                socketio.emit('live_session_error', {
+                    'session_id': session_id,
+                    'error': str(e)
+                })
+        
+        # Run processing in thread to avoid blocking
+        from threading import Thread
+        thread = Thread(target=process_audio_input)
+        thread.start()
+        
+    except Exception as e:
+        print(f"❌ Error in live_audio_input: {e}")
+        emit('live_session_error', {
             'error': f'Audio processing failed: {str(e)}'
         })
 
@@ -2516,17 +2520,83 @@ async def execute_browser_use_cloud_task(task_id, task_description, continue_ses
         # Initialize screenshot collector
         screenshot_collector = ScreenshotCollector(task_id)
         
+        # Check if the task requires research
+        research_keywords = ['research', 'find out', 'look up', 'search for', 'what is', 'how to', 'information about', 'learn about']
+        needs_research = any(keyword in task_description.lower() for keyword in research_keywords)
+        
+        enhanced_task_description = task_description
+        
+        if needs_research and enhanced_research_manager:
+            # Notify user that research mode is being used
+            logging.info(f"🔍 Task requires research, using Perplexity Deep Research mode")
+            socketio.emit('task_step', {
+                'task_id': task_id,
+                'step': 0,
+                'action': 'research_start',
+                'description': '🔍 Using researcher mode to research and find answers...',
+                'current_url': ''
+            })
+            
+            # Extract the research query from the task description
+            research_query = task_description
+            # Remove common browser task prefixes
+            for prefix in ['research and', 'find out', 'look up', 'search for']:
+                if research_query.lower().startswith(prefix):
+                    research_query = research_query[len(prefix):].strip()
+            
+            # Perform research using Perplexity
+            try:
+                research_result = enhanced_research_manager.conduct_research_sync(research_query)
+                
+                if research_result['success']:
+                    # Format research results for the browser task
+                    research_summary = research_result['summary']
+                    sources = research_result.get('sources', [])
+                    
+                    # Create enhanced task description with research results
+                    enhanced_task_description = f"""
+Task: {task_description}
+
+Research Results:
+{research_summary}
+
+Sources found: {len(sources)} credible sources analyzed
+
+Based on this research, please complete the browser automation task efficiently.
+If the task involves visiting websites, prioritize these sources:
+"""
+                    # Add top 3 sources to visit if relevant
+                    for i, source in enumerate(sources[:3], 1):
+                        if source.get('url'):
+                            enhanced_task_description += f"\n{i}. {source.get('title', 'Source')}: {source['url']}"
+                    
+                    # Notify user about research completion
+                    socketio.emit('task_step', {
+                        'task_id': task_id,
+                        'step': 1,
+                        'action': 'research_complete',
+                        'description': f'✅ Research completed. Analyzed {len(sources)} sources. Now executing browser task...',
+                        'current_url': ''
+                    })
+                    
+                    logging.info(f"✅ Research completed with {len(sources)} sources")
+                else:
+                    logging.warning(f"⚠️ Research failed, proceeding with original task")
+                    
+            except Exception as e:
+                logging.error(f"❌ Research error: {e}, proceeding with original task")
+        
         # Get Browser Use Cloud integration
         cloud_integration = get_browser_use_cloud()
         
         if continue_session:
             # For session continuation, we create a new task but keep the same browser
             logging.info(f"🔄 Continuing Browser Use Cloud session {task_id}")
-            result = await cloud_integration.execute_cloud_task(f"{task_id}_continue_{int(time.time())}", task_description)
+            result = await cloud_integration.execute_cloud_task(f"{task_id}_continue_{int(time.time())}", enhanced_task_description)
         else:
             # Execute task with Browser Use Cloud
             logging.info(f"🚀 About to execute Browser Use Cloud task: {task_id}")
-            result = await cloud_integration.execute_cloud_task(task_id, task_description)
+            result = await cloud_integration.execute_cloud_task(task_id, enhanced_task_description)
             logging.info(f"📊 Browser Use Cloud task result: {result}")
         
         if result["success"]:
@@ -2787,6 +2857,9 @@ async def execute_interactive_browser_task(task_id, task_description):
                 shutil.rmtree(temp_profile_dir)
             except Exception as e:
                 app.logger.error(f"Error cleaning up profile: {e}")
+
+# Register live voice routes
+register_live_voice_routes(app)
 
 if __name__ == '__main__':
     try:
